@@ -152,7 +152,6 @@ func physread16(a uint32) uint16 {
 }
 
 func consread16(a uint32) uint16 { panic("TODO") }
-func rkread16(a uint32) uint16   { panic("TODO") }
 
 func physread8(a uint32) uint16 {
 	var val uint16
@@ -226,7 +225,6 @@ func physwrite16(a uint32, v uint16) {
 }
 
 func conswrite16(a uint32, v uint16) { panic("TODO") }
-func rkwrite16(a uint32, v uint16)   { panic("TODO") }
 
 func decode(a uint32, w, m bool) uint32 {
 	var p page
@@ -425,11 +423,17 @@ func printstate() {
 	writedebug("\n\n")
 }
 
+type trap struct {
+	num uint16
+	msg string
+}
+
 func Trap(num uint16, msg string) {
-	panic(struct {
-		num uint16
-		msg string
-	}{num, msg})
+	panic(trap {num, msg})
+}
+
+func (t trap) String() string{
+	return fmt.Sprintf("trap %#d occured: %s", t.num, t.msg)
 }
 
 func interrupt(vec, pri uint16) {
@@ -515,41 +519,37 @@ func trapat(vec uint16, msg string) {
 	push(R[7])
 }
 
-func aget(v, l uint16) uint16 {
-	var addr uint16
-	if (v&7) >= 6 || (v&010 == 010) {
+func aget(v, l uint16) int {
+	var addr int
+	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -(v + 1)
+		return -(int(v) + 1)
 	}
 	switch v & 060 {
 	case 000:
 		v &= 7
-		addr = R[v&7]
-		break
+		addr = int(R[v&7])
 	case 020:
-		addr = R[v&7]
+		addr = int(R[v&7])
 		R[v&7] += l
-		break
 	case 040:
 		R[v&7] -= l
-		addr = R[v&7]
-		break
+		addr = int(R[v&7])
 	case 060:
-		addr = fetch16()
-		addr += R[v&7]
-		break
+		addr = int(fetch16())
+		addr += int(R[v&7])
 	}
 	addr &= 0xFFFF
-	if v&010 == 010 {
-		addr = read16(addr)
+	if v&010 != 0 {
+		addr = int(read16(uint16(addr)))
 	}
 	return addr
 }
 
-func memread(a, l uint16) uint16 {
-	if a := int16(a); a < 0 {
+func memread(a int, l uint16) uint16 {
+	if a < 0 {
 		if l == 2 {
 			return R[-(a + 1)]
 		} else {
@@ -557,15 +557,14 @@ func memread(a, l uint16) uint16 {
 		}
 	}
 	if l == 2 {
-		return read16(a)
+		return read16(uint16(a))
 	}
-	return read8(a)
+	return read8(uint16(a))
 }
 
-func memwrite(a, l, v uint16) {
-	if a := int16(a); a < 0 {
+func memwrite(a int, l, v uint16) {
+	if a < 0 {
 		if l == 2 {
-			fmt.Printf("memwrite: R%v: %#o\n", -(a + 1), v)
 			R[-(a + 1)] = v
 		} else {
 			R[-(a + 1)] &= 0xFF00
@@ -744,13 +743,13 @@ func step() {
 	}
 	switch instr & 0177000 {
 	case 0004000: // JSR
-		val = aget(d, l)
+		val := aget(d, l)
 		if val < 0 {
 			break
 		}
 		push(R[s&7])
 		R[s&7] = R[7]
-		R[7] = val
+		R[7] = uint16(val)
 		return
 	case 0070000: // MUL
 		val1 = R[s&7]
@@ -1121,11 +1120,11 @@ func step() {
 	}
 	switch instr & 0177700 {
 	case 0000100: // JMP
-		val = aget(d, 2)
+		val := aget(d, 2)
 		if val < 0 {
 			break
 		}
-		R[7] = val
+		R[7] = uint16(val)
 		return
 	case 0000300: // SWAB
 		da := aget(d, l)
@@ -1374,7 +1373,7 @@ func reset() {
 	R[7] = 02002
 	cleardebug()
 	// clearterminal()
-	//rkreset()
+	rkreset()
 	clkcounter = 0
 	waiting = false
 }
