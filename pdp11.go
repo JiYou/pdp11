@@ -9,14 +9,15 @@ const (
 	FLAGC = 1
 )
 
+const pr = false // debug
+
 var (
-	pr                = false
 	R                 = [8]uint16{0, 0, 0, 0, 0, 0, 0, 0} // registers
 	KSP, USP          uint16                              // kernel and user stack pointer
 	PS                uint16                              // processor status
 	curPC             uint16                              // address of current instruction
 	lastPCs           []uint16
-	instr              uint16            // current instruction
+	instr             uint16            // current instruction
 	memory            [64 * 1024]uint16 // word addressing
 	tim1, tim2        uint16
 	ips               uint16
@@ -32,9 +33,9 @@ type intr struct{ vec, pri uint16 }
 var pages [16]page
 
 type page struct {
-	par, pdr uint16
-	addr, len uint32
-	read, write, ed bool 
+	par, pdr        uint16
+	addr, len       uint32
+	read, write, ed bool
 }
 
 // traps
@@ -77,34 +78,34 @@ var bootrom = [...]uint16{
 }
 
 func xor(x, y uint16) uint16 {
-	a := x & y;
-    	b := ^x & ^y;
-    	z := ^a & ^b;
-	return z;
+	a := x & y
+	b := ^x & ^y
+	z := ^a & ^b
+	return z
 }
 
 func xor32(x, y uint32) uint32 {
-	a := x & y;
-    	b := ^x & ^y;
-    	z := ^a & ^b;
-	return z;
+	a := x & y
+	b := ^x & ^y
+	z := ^a & ^b
+	return z
 }
 
 func switchmode(newm bool) {
 	prevuser = curuser
 	curuser = newm
-	if prevuser  {
+	if prevuser {
 		USP = R[6]
 	} else {
 		KSP = R[6]
 	}
-	if curuser  {
+	if curuser {
 		R[6] = USP
 	} else {
 		R[6] = KSP
 	}
 	PS &= 0007777
-	if curuser  {
+	if curuser {
 		PS |= (1 << 15) | (1 << 14)
 	}
 	if prevuser {
@@ -151,13 +152,13 @@ func physread16(a uint32) uint16 {
 }
 
 func consread16(a uint32) uint16 { panic("TODO") }
-func rkread16(a uint32) uint16 { panic("TODO") }
+func rkread16(a uint32) uint16   { panic("TODO") }
 
 func physread8(a uint32) uint16 {
 	var val uint16
 	const MASK uint32 = 1
 	val = physread16(a & ^MASK)
-	if a & 1 != 0 {
+	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
@@ -165,7 +166,7 @@ func physread8(a uint32) uint16 {
 
 func physwrite8(a uint32, v uint16) {
 	if a < 0760000 {
-		if a & 1 == 1 {
+		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
 			memory[a>>1] |= (v & 0xFF) << 8
 		} else {
@@ -173,7 +174,7 @@ func physwrite8(a uint32, v uint16) {
 			memory[a>>1] |= v & 0xFF
 		}
 	} else {
-		if a & 1 == 1{
+		if a&1 == 1 {
 			physwrite16(a&^1, (physread16(a)&0xFF)|((v&0xFF)<<8))
 		} else {
 			physwrite16(a&^1, (physread16(a)&0xFF00)|(v&0xFF))
@@ -182,7 +183,7 @@ func physwrite8(a uint32, v uint16) {
 }
 
 func physwrite16(a uint32, v uint16) {
-	if a % 1 != 0 {
+	if a%1 != 0 {
 		Trap(INTBUS, "write to odd address "+ostr(a, 6))
 	}
 	if a < 0760000 {
@@ -225,28 +226,28 @@ func physwrite16(a uint32, v uint16) {
 }
 
 func conswrite16(a uint32, v uint16) { panic("TODO") }
-func rkwrite16(a uint32, v uint16) { panic("TODO") }
+func rkwrite16(a uint32, v uint16)   { panic("TODO") }
 
 func decode(a uint32, w, m bool) uint32 {
 	var p page
 	var user uint32
 	var block, disp uint32
-	if !(SR0 & 1 == 1) {
+	if !(SR0&1 == 1) {
 		if a >= 0170000 {
 			a += 0600000
 		}
 		return a
 	}
-	if m  {
+	if m {
 		user = 8
 	} else {
 		user = 0
 	}
 	p = pages[(a>>13)+user]
-	const MASK uint16= 1
+	const MASK uint16 = 1
 	if w && !p.write {
 		SR0 = (1 << 13) | 1
-		SR0 |= uint16(a >> 12) & ^MASK
+		SR0 |= uint16(a>>12) & ^MASK
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -255,7 +256,7 @@ func decode(a uint32, w, m bool) uint32 {
 	}
 	if !p.read {
 		SR0 = (1 << 15) | 1
-		SR0 |= uint16(a >> 12) & ^MASK
+		SR0 |= uint16(a>>12) & ^MASK
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -264,10 +265,10 @@ func decode(a uint32, w, m bool) uint32 {
 	}
 	block = a >> 6 & 0177
 	disp = a & 077
-	if p.ed && block < p.len || !p.ed  && block > p.len {
+	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		SR0 = (1 << 14) | 1
-		SR0 |= uint16(a >> 12) & ^MASK
+		SR0 |= uint16(a>>12) & ^MASK
 		if user > 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -285,7 +286,7 @@ func createpage(par, pdr uint16) page {
 		par:   par,
 		pdr:   pdr,
 		addr:  uint32(par & 07777),
-		len:   uint32(pdr >> 8) & 0x7F,
+		len:   uint32(pdr>>8) & 0x7F,
 		read:  (pdr & 2) == 2,
 		write: (pdr & 6) == 6,
 		ed:    (pdr & 8) == 8,
@@ -378,27 +379,23 @@ func cleardebug() {
 	// document.getElementById("debug").firstChild.deleteData(0, len);
 }
 
-func writedebug(msg string) {
-	// var ta = document.getElementById("debug");
-	// ta.firstChild.appendData(msg);
-	// ta.scrollTop = ta.scrollHeight;
-}
+var writedebug = fmt.Print
 
 func printstate() {
-	writedebug( "R0 " + ostr(R[0], 6) + " " +
-			"R1 " + ostr(R[1], 6) + " " +
-			"R2 " + ostr(R[2], 6) + " " +
-			"R3 " + ostr(R[3], 6) + " " +
-			"R4 " + ostr(R[4], 6) + " " +
-			"R5 " + ostr(R[5], 6) + " " +
-			"R6 " + ostr(R[6], 6) + " " +
-			"R7 " + ostr(R[7], 6) + "\n[")
-	if prevuser  {
+	writedebug("R0 " + ostr(R[0], 6) + " " +
+		"R1 " + ostr(R[1], 6) + " " +
+		"R2 " + ostr(R[2], 6) + " " +
+		"R3 " + ostr(R[3], 6) + " " +
+		"R4 " + ostr(R[4], 6) + " " +
+		"R5 " + ostr(R[5], 6) + " " +
+		"R6 " + ostr(R[6], 6) + " " +
+		"R7 " + ostr(R[7], 6) + "\n[")
+	if prevuser {
 		writedebug("u")
 	} else {
 		writedebug("k")
 	}
-	if curuser  {
+	if curuser {
 		writedebug("U")
 	} else {
 		writedebug("K")
@@ -424,12 +421,9 @@ func printstate() {
 		writedebug(" ")
 	}
 	writedebug("]  instr " + ostr(curPC, 6) + ": " + ostr(instr, 6) + "   ")
-	// writedebug(disasm(decode(uint32(curPC), false, curuser)))
-	// } catch(e) {
+	writedebug(disasm(decode(uint32(curPC), false, curuser)))
 	writedebug("\n\n")
 }
-
-func disasm(inst uint16) string { return "" }
 
 func Trap(num uint16, msg string) {
 	panic(struct {
@@ -440,7 +434,7 @@ func Trap(num uint16, msg string) {
 
 func interrupt(vec, pri uint16) {
 	var i int
-	if vec & 1 == 1 {
+	if vec&1 == 1 {
 		panic("Thou darst calling interrupt() with an odd vector number?")
 	}
 	for ; i < len(interrupts); i++ {
@@ -498,7 +492,7 @@ func trapat(vec uint16, msg string) {
 			memory[1] = prev
 			vec = 4
 		case nil:
-			break;
+			break
 		default:
 			panic(trap)
 		}
@@ -509,10 +503,10 @@ func trapat(vec uint16, msg string) {
 		}
 		waiting = false
 	}()
-	if vec & 1 == 1{
+	if vec&1 == 1 {
 		panic("Thou darst calling trapat() with an odd vector number?")
 	}
-	writedebug("trap " + ostr(vec,6) + " occured: " + msg + "\n")
+	writedebug("trap " + ostr(vec, 6) + " occured: " + msg + "\n")
 	printstate()
 
 	prev = PS
@@ -523,7 +517,7 @@ func trapat(vec uint16, msg string) {
 
 func aget(v, l uint16) uint16 {
 	var addr uint16
-	if (v&7) >= 6 || (v & 010 == 010) {
+	if (v&7) >= 6 || (v&010 == 010) {
 		l = 2
 	}
 	if (v & 070) == 000 {
@@ -548,7 +542,7 @@ func aget(v, l uint16) uint16 {
 		break
 	}
 	addr &= 0xFFFF
-	if v & 010 == 010 {
+	if v&010 == 010 {
 		addr = read16(addr)
 	}
 	return addr
@@ -571,6 +565,7 @@ func memread(a, l uint16) uint16 {
 func memwrite(a, l, v uint16) {
 	if a := int16(a); a < 0 {
 		if l == 2 {
+			fmt.Printf("memwrite: R%v: %#o\n", -(a + 1), v)
 			R[-(a + 1)] = v
 		} else {
 			R[-(a + 1)] &= 0xFF00
@@ -584,7 +579,7 @@ func memwrite(a, l, v uint16) {
 }
 
 func branch(o uint16) {
-	if o & 0x80 == 0x80 {
+	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
 	}
 	o <<= 1
@@ -593,21 +588,22 @@ func branch(o uint16) {
 
 func step() {
 	var ia uint32
-	var val, val1, val2, da, sa, d, s, l, o, max, maxp, msb uint16
+	var val, val1, val2, max, maxp, msb uint16
 	ips++
 	if waiting {
 		return
 	}
 	curPC = R[7]
 	ia = decode(uint32(R[7]), false, curuser)
+	writedebug(disasm(ia) + "\n")
 	R[7] += 2
 	//lastPCs = lastPCs.slice(0, 100)
 	//lastPCs.splice(0, 0, ia)
 	instr = physread16(ia)
-	d = instr & 077
-	s = (instr & 07700) >> 6
-	l = 2 - (instr >> 15)
-	o = instr & 0xFF
+	d := instr & 077
+	s := (instr & 07700) >> 6
+	l := 2 - (instr >> 15)
+	o := instr & 0xFF
 	if l == 2 {
 		max = 0xFFFF
 		maxp = 0x7FFF
@@ -619,38 +615,38 @@ func step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		sa = aget(s, l)
-		val = memread(sa, l)
-		da = aget(d, l)
+		sa := aget(s, l)
+		val := memread(sa, l)
+		da := aget(d, l)
 		PS &= 0xFFF1
-		if val & msb != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if da < 0 && l == 1 {
+		if int16(da) < 0 && l == 1 {
 			l = 2
-			if val & msb != 0 {
+			if val&msb != 0 {
 				val |= 0xFF00
 			}
 		}
 		memwrite(da, l, val)
 		return
 	case 0020000: // CMP
-		sa = aget(s, l)
+		sa := aget(s, l)
 		val1 = memread(sa, l)
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, l)
 		val = (val1 - val2) & max
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & msb != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
-		if ((val1 ^ val2) & msb) != 0 && !((val2 ^ val) & msb != 0 ) {
+		if ((val1^val2)&msb) != 0 && !((val2^val)&msb != 0) {
 			PS |= FLAGV
 		}
 		if val1 < val2 {
@@ -658,45 +654,45 @@ func step() {
 		}
 		return
 	case 0030000: // BIT
-		sa = aget(s, l)
+		sa := aget(s, l)
 		val1 = memread(sa, l)
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, l)
 		val = val1 & val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & msb != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		return
 	case 0040000: // BIC
-		sa = aget(s, l)
+		sa := aget(s, l)
 		val1 = memread(sa, l)
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, l)
 		val = (max ^ val1) & val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & msb != 0{
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		memwrite(da, l, val)
 		return
 	case 0050000: // BIS
-		sa = aget(s, l)
+		sa := aget(s, l)
 		val1 = memread(sa, l)
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, l)
 		val = val1 | val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & msb != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		memwrite(da, l, val)
@@ -704,19 +700,19 @@ func step() {
 	}
 	switch instr & 0170000 {
 	case 0060000: // ADD
-		sa = aget(s, 2)
+		sa := aget(s, 2)
 		val1 = memread(sa, 2)
-		da = aget(d, 2)
+		da := aget(d, 2)
 		val2 = memread(da, 2)
 		val = (val1 + val2) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x8000 != 0 {
+		if val&0x8000 != 0 {
 			PS |= FLAGN
 		}
-		if !((val1 ^ val2) & 0x8000 != 0) && ((val2 ^ val) & 0x8000 != 0) {
+		if !((val1^val2)&0x8000 != 0) && ((val2^val)&0x8000 != 0) {
 			PS |= FLAGV
 		}
 		if val1+val2 >= 0xFFFF {
@@ -725,19 +721,19 @@ func step() {
 		memwrite(da, 2, val)
 		return
 	case 0160000: // SUB
-		sa = aget(s, 2)
+		sa := aget(s, 2)
 		val1 = memread(sa, 2)
-		da = aget(d, 2)
+		da := aget(d, 2)
 		val2 = memread(da, 2)
 		val = (val2 - val1) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x8000 != 0 {
+		if val&0x8000 != 0 {
 			PS |= FLAGN
 		}
-		if ((val1 ^ val2) & 0x8000 != 0 ) && !((val2 ^ val) & 0x8000 != 0) {
+		if ((val1^val2)&0x8000 != 0) && !((val2^val)&0x8000 != 0) {
 			PS |= FLAGV
 		}
 		if val1 > val2 {
@@ -758,19 +754,19 @@ func step() {
 		return
 	case 0070000: // MUL
 		val1 = R[s&7]
-		if val1 & 0x8000 != 0{
+		if val1&0x8000 != 0 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, 2)
-		if val2 & 0x8000 != 0{
+		if val2&0x8000 != 0 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
 		val3 := uint32(val1) * uint32(val2)
 		R[s&7] = uint16((val3 & 0xFFFF0000) >> 16)
 		R[(s&7)|1] = uint16(val3 & 0xFFFF)
 		PS &= 0xFFF0
-		if val3 & 0x80000000 != 0{
+		if val3&0x80000000 != 0 {
 			PS |= FLAGN
 		}
 		if (val3 & 0xFFFFFFFF) == 0 {
@@ -782,7 +778,7 @@ func step() {
 		return
 	case 0071000: // DIV
 		val1 = (R[s&7] << 16) | R[(s&7)|1]
-		da = aget(d, l)
+		da := aget(d, l)
 		val2 = memread(da, 2)
 		PS &= 0xFFF0
 		if val2 == 0 {
@@ -798,7 +794,7 @@ func step() {
 		if R[s&7] == 0 {
 			PS |= FLAGZ
 		}
-		if R[s&7] & 0100000 == 0100000 {
+		if R[s&7]&0100000 == 0100000 {
 			PS |= FLAGN
 		}
 		if val1 == 0 {
@@ -807,23 +803,23 @@ func step() {
 		return
 	case 0072000: // ASH
 		val1 = R[s&7]
-		da = aget(d, 2)
+		da := aget(d, 2)
 		val2 = memread(da, 2) & 077
 		PS &= 0xFFF0
-		if val2 & 040 == 040 {
+		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
-			if val1 & 0100000 == 0100000 {
+			if val1&0100000 == 0100000 {
 				val = 0xFFFF ^ (0xFFFF >> val2)
 				val |= val1 >> val2
 			} else {
 				val = val1 >> val2
 			}
-			if val1 & (1 << (val2 - 1)) != 0 {
+			if val1&(1<<(val2-1)) != 0 {
 				PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
-			if val1 & (1 << (16 - val2)) != 0 {
+			if val1&(1<<(16-val2)) != 0 {
 				PS |= FLAGC
 			}
 		}
@@ -831,7 +827,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0100000 != 0 {
+		if val&0100000 != 0 {
 			PS |= FLAGN
 		}
 		if xor(val&0100000, val1&0100000) != 0 {
@@ -840,24 +836,24 @@ func step() {
 		return
 	case 0073000: // ASHC
 		var val uint32
-		val1 := uint32(R[s&7]) << 16 | uint32(R[(s&7)|1])
-		da = aget(d, 2)
+		val1 := uint32(R[s&7])<<16 | uint32(R[(s&7)|1])
+		da := aget(d, 2)
 		val2 = memread(da, 2) & 077
 		PS &= 0xFFF0
-		if val2 & 040 == 040 {
+		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
-			if val1 & 0x80000000 != 0 {
+			if val1&0x80000000 != 0 {
 				val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
 				val |= val1 >> val2
 			} else {
 				val = val1 >> val2
 			}
-			if val1 & (1 << (val2 - 1))!= 0  {
+			if val1&(1<<(val2-1)) != 0 {
 				PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFFFFFF
-			if val1 & (1 << (32 - val2)) != 0 {
+			if val1&(1<<(32-val2)) != 0 {
 				PS |= FLAGC
 			}
 		}
@@ -866,7 +862,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x80000000 != 0 {
+		if val&0x80000000 != 0 {
 			PS |= FLAGN
 		}
 		if xor32(val&0x80000000, val1&0x80000000) != 0 {
@@ -875,14 +871,14 @@ func step() {
 		return
 	case 0074000: // XOR
 		val1 = R[s&7]
-		da = aget(d, 2)
+		da := aget(d, 2)
 		val2 = memread(da, 2)
 		val = val1 ^ val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x8000 == 0x8000 {
+		if val&0x8000 == 0x8000 {
 			PS |= FLAGZ
 		}
 		memwrite(da, 2, val)
@@ -900,15 +896,15 @@ func step() {
 	case 0005000: // CLR
 		PS &= 0xFFF0
 		PS |= FLAGZ
-		da = aget(d, l)
+		da := aget(d, l)
 		memwrite(da, l, 0)
 		return
 	case 0005100: // COM
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l) ^ max
 		PS &= 0xFFF0
 		PS |= FLAGC
-		if val & msb != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		if val == 0 {
@@ -917,10 +913,10 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0005200: // INC
-		da = aget(d, l)
+		da := aget(d, l)
 		val = (memread(da, l) + 1) & max
 		PS &= 0xFFF1
-		if val & msb != 0  {
+		if val&msb != 0 {
 			PS |= FLAGN | FLAGV
 		}
 		if val == 0 {
@@ -929,10 +925,10 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0005300: // DEC
-		da = aget(d, l)
+		da := aget(d, l)
 		val = (memread(da, l) - 1) & max
 		PS &= 0xFFF1
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		if val == maxp {
@@ -944,10 +940,10 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0005400: // NEG
-		da = aget(d, l)
+		da := aget(d, l)
 		val = (-memread(da, l)) & max
 		PS &= 0xFFF0
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		if val == 0 {
@@ -961,11 +957,11 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0005500: // ADC
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
-		if PS & FLAGC == FLAGC{
+		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
-			if (val + 1) & msb  != 0 {
+			if (val+1)&msb != 0 {
 				PS |= FLAGN
 			}
 			if val == max {
@@ -980,7 +976,7 @@ func step() {
 			memwrite(da, l, (val+1)&max)
 		} else {
 			PS &= 0xFFF0
-			if val & msb  != 0 {
+			if val&msb != 0 {
 				PS |= FLAGN
 			}
 			if val == 0 {
@@ -989,11 +985,11 @@ func step() {
 		}
 		return
 	case 0005600: // SBC
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
-		if PS & FLAGC == FLAGC{
+		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
-			if (val - 1) & msb != 0  {
+			if (val-1)&msb != 0 {
 				PS |= FLAGN
 			}
 			if val == 1 {
@@ -1008,7 +1004,7 @@ func step() {
 			memwrite(da, l, (val-1)&max)
 		} else {
 			PS &= 0xFFF0
-			if val & msb  != 0 {
+			if val&msb != 0 {
 				PS |= FLAGN
 			}
 			if val == 0 {
@@ -1021,10 +1017,10 @@ func step() {
 		}
 		return
 	case 0005700: // TST
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
 		PS &= 0xFFF0
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
 		if val == 0 {
@@ -1032,19 +1028,19 @@ func step() {
 		}
 		return
 	case 0006000: // ROR
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
-		if PS & FLAGC == FLAGC{
+		if PS&FLAGC == FLAGC {
 			val |= max + 1
 		}
 		PS &= 0xFFF0
-		if val & 1 == 1{
+		if val&1 == 1 {
 			PS |= FLAGC
 		}
-		if val & (max + 1) != 0  {
+		if val&(max+1) != 0 {
 			PS |= FLAGN
 		}
-		if !(val & max != 0 ) {
+		if !(val&max != 0) {
 			PS |= FLAGZ
 		}
 		if xor(val&1, val&(max+1)) != 0 {
@@ -1054,38 +1050,38 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0006100: // ROL
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l) << 1
-		if PS & FLAGC == FLAGC {
+		if PS&FLAGC == FLAGC {
 			val |= 1
 		}
 		PS &= 0xFFF0
-		if val & (max + 1)  != 0 {
+		if val&(max+1) != 0 {
 			PS |= FLAGC
 		}
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
-		if !(val & max != 0 ) {
+		if !(val&max != 0) {
 			PS |= FLAGZ
 		}
-		if (val ^ (val >> 1)) & msb  != 0 {
+		if (val^(val>>1))&msb != 0 {
 			PS |= FLAGV
 		}
 		val &= max
 		memwrite(da, l, val)
 		return
 	case 0006200: // ASR
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
 		PS &= 0xFFF0
-		if val & 1  != 0 {
+		if val&1 != 0 {
 			PS |= FLAGC
 		}
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGN
 		}
-		if xor(val&msb, val&1)  != 0 {
+		if xor(val&msb, val&1) != 0 {
 			PS |= FLAGV
 		}
 		val = (val & msb) | (val >> 1)
@@ -1095,16 +1091,16 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0006300: // ASL
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
 		PS &= 0xFFF0
-		if val & msb  != 0 {
+		if val&msb != 0 {
 			PS |= FLAGC
 		}
-		if val & (msb >> 1)  != 0 {
+		if val&(msb>>1) != 0 {
 			PS |= FLAGN
 		}
-		if (val ^ (val << 1)) & msb  != 0 {
+		if (val^(val<<1))&msb != 0 {
 			PS |= FLAGV
 		}
 		val = (val << 1) & max
@@ -1114,8 +1110,8 @@ func step() {
 		memwrite(da, l, val)
 		return
 	case 0006700: // SXT
-		da = aget(d, l)
-		if PS & FLAGN == FLAGN{
+		da := aget(d, l)
+		if PS&FLAGN == FLAGN {
 			memwrite(da, l, max)
 		} else {
 			PS |= FLAGZ
@@ -1132,14 +1128,14 @@ func step() {
 		R[7] = val
 		return
 	case 0000300: // SWAB
-		da = aget(d, l)
+		da := aget(d, l)
 		val = memread(da, l)
 		val = ((val >> 8) | (val << 8)) & 0xFFFF
 		PS &= 0xFFF0
 		if (val & 0xFF) == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x80 == 0x80 {
+		if val&0x80 == 0x80 {
 			PS |= FLAGN
 		}
 		memwrite(da, l, val)
@@ -1154,7 +1150,7 @@ func step() {
 		if da == -7 {
 			if curuser == prevuser {
 				val = R[6]
-			} else if prevuser  {
+			} else if prevuser {
 				val = USP
 			} else {
 				val = KSP
@@ -1171,7 +1167,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x8000 != 0 {
+		if val&0x8000 != 0 {
 			PS |= FLAGN
 		}
 		return
@@ -1181,7 +1177,7 @@ func step() {
 		if da == -7 {
 			if curuser == prevuser {
 				R[6] = val
-			} else if prevuser  {
+			} else if prevuser {
 				USP = val
 			} else {
 				KSP = val
@@ -1197,7 +1193,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val & 0x8000 != 0 {
+		if val&0x8000 != 0 {
 			PS |= FLAGN
 		}
 		return
@@ -1212,72 +1208,72 @@ func step() {
 		branch(o)
 		return
 	case 0001000:
-		if !(PS & FLAGZ == FLAGZ) {
+		if !(PS&FLAGZ == FLAGZ) {
 			branch(o)
 			return
 		}
 	case 0001400:
-		if PS & FLAGZ == FLAGZ {
+		if PS&FLAGZ == FLAGZ {
 			branch(o)
 			return
 		}
 	case 0002000:
-		if !(xor(PS&FLAGN, PS&FLAGV)!=0) {
+		if !(xor(PS&FLAGN, PS&FLAGV) != 0) {
 			branch(o)
 			return
 		}
 	case 0002400:
-		if xor(PS&FLAGN, PS&FLAGV) !=0 {
+		if xor(PS&FLAGN, PS&FLAGV) != 0 {
 			branch(o)
 			return
 		}
 	case 0003000:
-		if !(xor(PS&FLAGN, PS&FLAGV) !=0) && !(PS & FLAGZ == FLAGZ) {
+		if !(xor(PS&FLAGN, PS&FLAGV) != 0) && !(PS&FLAGZ == FLAGZ) {
 			branch(o)
 			return
 		}
 	case 0003400:
-		if xor(PS&FLAGN, PS&FLAGV)!=0 || (PS & FLAGZ == FLAGZ) {
+		if xor(PS&FLAGN, PS&FLAGV) != 0 || (PS&FLAGZ == FLAGZ) {
 			branch(o)
 			return
 		}
 	case 0100000:
-		if !(PS & FLAGN == FLAGN) {
+		if !(PS&FLAGN == FLAGN) {
 			branch(o)
 			return
 		}
 	case 0100400:
-		if PS & FLAGN == FLAGN{
+		if PS&FLAGN == FLAGN {
 			branch(o)
 			return
 		}
 	case 0101000:
-		if !(PS & FLAGC == FLAGC) && !(PS & FLAGZ == FLAGZ) {
+		if !(PS&FLAGC == FLAGC) && !(PS&FLAGZ == FLAGZ) {
 			branch(o)
 			return
 		}
 	case 0101400:
-		if (PS & FLAGC == FLAGC) || (PS & FLAGZ == FLAGZ) {
+		if (PS&FLAGC == FLAGC) || (PS&FLAGZ == FLAGZ) {
 			branch(o)
 			return
 		}
 	case 0102000:
-		if !(PS & FLAGV == FLAGV) {
+		if !(PS&FLAGV == FLAGV) {
 			branch(o)
 			return
 		}
 	case 0102400:
-		if PS & FLAGV == FLAGV {
+		if PS&FLAGV == FLAGV {
 			branch(o)
 			return
 		}
 	case 0103000:
-		if !(PS & FLAGC == FLAGC) {
+		if !(PS&FLAGC == FLAGC) {
 			branch(o)
 			return
 		}
 	case 0103400:
-		if PS & FLAGC == FLAGC {
+		if PS&FLAGC == FLAGC {
 			branch(o)
 			return
 		}
@@ -1305,7 +1301,7 @@ func step() {
 		return
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
-		if instr & 020 == 020 {
+		if instr&020 == 020 {
 			PS |= instr & 017
 		} else {
 			PS &= ^(instr & 017)
@@ -1395,7 +1391,7 @@ func nsteps(n int) {
 		if clkcounter >= 40000 {
 			clkcounter = 0
 			LKS |= (1 << 7)
-			if LKS & (1 << 6) != 0 {
+			if LKS&(1<<6) != 0 {
 				interrupt(INTCLOCK, 6)
 			}
 		}
