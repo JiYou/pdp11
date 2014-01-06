@@ -16,10 +16,8 @@ const (
 )
 
 func rkread16(a uint32) uint16 {
-	fmt.Printf("rkread16: %#o\n", a)
 	switch a {
 	case 0777400:
-		fmt.Println("RKDS:", RKDS)
 		return RKDS
 	case 0777402:
 		return RKER
@@ -37,13 +35,11 @@ func rkread16(a uint32) uint16 {
 }
 
 func rknotready() {
-	println("rknotready")
 	RKDS &= ^uint16(1 << 6)
 	RKCS &= ^uint16(1 << 7)
 }
 
 func rkready() {
-	println("rkready")
 	RKDS |= 1 << 6
 	RKCS |= 1 << 7
 }
@@ -112,7 +108,6 @@ func rkrwsec(t bool) {
 	} else {
 		rkready()
 		if RKCS&(1<<6) != 0 {
-			println("Interrupt")
 			interrupt(INTRK, 5)
 		}
 	}
@@ -144,8 +139,9 @@ func rkwrite16(a uint32, v uint16) {
 		break
 	case 0777404:
 		RKBA = int(uint16(RKBA&0xFFFF) | ((v & 060) << 12))
-		v &= 017517 // writable bits
-		RKCS &= uint16(^uint16(017517))
+		const BITS uint16 = 017517
+		v &= BITS // writable bits
+		RKCS &= ^BITS
 		RKCS |= v & ^uint16(1) // don't set GO bit
 		if v&1 == 1 {
 			rkgo()
@@ -158,7 +154,6 @@ func rkwrite16(a uint32, v uint16) {
 		RKBA = (RKBA & 0x30000) | int(v)
 		break
 	case 0777412:
-		fmt.Println("rkwrite '412:", v)
 		drive = v >> 13
 		cylinder = (v >> 5) & 0377
 		surface = (v >> 4) & 1

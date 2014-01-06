@@ -138,7 +138,6 @@ func physread16(a uint32) uint16 {
 		return consread16(a)
 	}
 	if a&0777760 == 0777400 {
-		fmt.Printf("rkread: %#o\n", a)
 		return rkread16(a)
 	}
 	if a&0777600 == 0772200 || (a&0777600) == 0777600 {
