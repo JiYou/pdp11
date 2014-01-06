@@ -152,8 +152,6 @@ func physread16(a uint32) uint16 {
 	panic("unreachable")
 }
 
-func consread16(a uint32) uint16 { panic("TODO") }
-
 func physread8(a uint32) uint16 {
 	var val uint16
 	const MASK uint32 = 1
@@ -224,8 +222,6 @@ func physwrite16(a uint32, v uint16) {
 		Trap(INTBUS, "write to invalid address "+ostr(a, 6))
 	}
 }
-
-func conswrite16(a uint32, v uint16) { panic("TODO") }
 
 func decode(a uint32, w, m bool) uint32 {
 	var p page
@@ -371,11 +367,6 @@ func pop() uint16 {
 
 func ostr(z interface{}, n uint16) string {
 	return fmt.Sprintf("%#o", z)
-}
-
-func cleardebug() {
-	// var len = document.getElementById("debug").firstChild.nodeValue.length;
-	// document.getElementById("debug").firstChild.deleteData(0, len);
 }
 
 var writedebug = fmt.Print
@@ -1020,7 +1011,6 @@ func step() {
 		da := aget(d, l)
 		val := memread(da, l)
 		PS &= 0xFFF0
-		fmt.Println(val, msb, val&msb)
 		if val&msb != 0 {
 			PS |= FLAGN
 		}
@@ -1239,7 +1229,7 @@ func step() {
 		}
 		return
 	case 0100000:
-		if PS&FLAGN == 0  {
+		if PS&FLAGN == 0 {
 			branch(o)
 		}
 		return
@@ -1340,13 +1330,14 @@ func step() {
 		if curuser {
 			return
 		}
-		// clearterminal()
+		clearterminal()
 		rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
 	}
 	fmt.Println(ia, disasm(ia))
+	dumpmem()
 	Trap(INTINVAL, "invalid instruction")
 }
 
@@ -1374,8 +1365,7 @@ func reset() {
 		pages[i] = createpage(0, 0)
 	}
 	R[7] = 02002
-	cleardebug()
-	// clearterminal()
+	clearterminal()
 	rkreset()
 	clkcounter = 0
 	waiting = false
