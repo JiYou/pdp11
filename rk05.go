@@ -16,13 +16,15 @@ const (
 )
 
 func rkread16(a uint32) uint16 {
+	fmt.Printf("rkread16: %#o\n", a)
 	switch a {
 	case 0777400:
+		fmt.Println("RKDS:", RKDS)
 		return RKDS
 	case 0777402:
 		return RKER
 	case 0777404:
-		return RKCS | uint16((RKBA&0x30000)>>12)
+		return RKCS  | uint16((RKBA&0x30000)>>12)
 	case 0777406:
 		return RKWC
 	case 0777410:
@@ -35,11 +37,13 @@ func rkread16(a uint32) uint16 {
 }
 
 func rknotready() {
+	println("rknotready")
 	RKDS &= ^uint16(1 << 6)
 	RKCS &= ^uint16(1 << 7)
 }
 
 func rkready() {
+	println("rkready")
 	RKDS |= 1 << 6
 	RKCS |= 1 << 7
 }
@@ -67,6 +71,7 @@ func rkerror(code uint16) {
 }
 
 func rkrwsec(t bool) {
+	fmt.Println("rkrwsec: RKBA:", RKBA,"RKWC:", RKWC,"cylinder:", cylinder,"sector:", sector)
 	if drive != 0 {
 		rkerror(RKNXD)
 	}
@@ -83,6 +88,7 @@ func rkrwsec(t bool) {
 			rkdisk[pos] = byte(val & 0xFF)
 			rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
+			//fmt.Printf("RKBA: %#o, pos: %x, value: %#o\n", RKBA, pos, uint16(rkdisk[pos]) | uint16((rkdisk[pos+1] << 8)))
 			memory[RKBA>>1] = uint16(rkdisk[pos]) | uint16((rkdisk[pos+1] << 8))
 		}
 		RKBA += 2
@@ -106,6 +112,7 @@ func rkrwsec(t bool) {
 	} else {
 		rkready()
 		if RKCS&(1<<6) != 0 {
+			println("Interrupt")
 			interrupt(INTRK, 5)
 		}
 	}
@@ -139,8 +146,7 @@ func rkwrite16(a uint32, v uint16) {
 		RKBA = int(uint16(RKBA&0xFFFF) | ((v & 060) << 12))
 		v &= 017517 // writable bits
 		RKCS &= uint16(^uint16(017517))
-		const MASK uint16 = 1
-		RKCS |= v & ^MASK // don't set GO bit
+		RKCS |= v & ^uint16(1) // don't set GO bit
 		if v&1 == 1 {
 			rkgo()
 		}
@@ -152,6 +158,7 @@ func rkwrite16(a uint32, v uint16) {
 		RKBA = (RKBA & 0x30000) | int(v)
 		break
 	case 0777412:
+		fmt.Println("rkwrite '412:", v)
 		drive = v >> 13
 		cylinder = (v >> 5) & 0377
 		surface = (v >> 4) & 1

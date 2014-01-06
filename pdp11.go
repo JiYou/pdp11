@@ -139,6 +139,7 @@ func physread16(a uint32) uint16 {
 		return consread16(a)
 	}
 	if a&0777760 == 0777400 {
+		fmt.Printf("rkread: %#o\n", a)
 		return rkread16(a)
 	}
 	if a&0777600 == 0772200 || (a&0777600) == 0777600 {
@@ -453,9 +454,11 @@ func interrupt(vec, pri uint16) {
 	}
 	// interrupts.splice(i, 0, {vec: vec, pri: pri});
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
+	fmt.Println("Interrupts:", interrupts)
 }
 
 func handleinterrupt(vec uint16) {
+	fmt.Println("handleinterrupt vec:", vec)
 	defer func() {
 		trap := recover()
 		switch trap := trap.(type) {
@@ -586,15 +589,13 @@ func branch(o uint16) {
 }
 
 func step() {
-	var ia uint32
 	var val, val1, val2, max, maxp, msb uint16
 	ips++
 	if waiting {
 		return
 	}
 	curPC = R[7]
-	ia = decode(uint32(R[7]), false, curuser)
-	writedebug(disasm(ia) + "\n")
+	ia := decode(uint32(R[7]), false, curuser)
 	R[7] += 2
 	//lastPCs = lastPCs.slice(0, 100)
 	//lastPCs.splice(0, 0, ia)
@@ -1017,8 +1018,9 @@ func step() {
 		return
 	case 0005700: // TST
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		PS &= 0xFFF0
+		fmt.Println(val, msb, val&msb)
 		if val&msb != 0 {
 			PS |= FLAGN
 		}
@@ -1209,73 +1211,73 @@ func step() {
 	case 0001000:
 		if !(PS&FLAGZ == FLAGZ) {
 			branch(o)
-			return
 		}
+		return
 	case 0001400:
 		if PS&FLAGZ == FLAGZ {
 			branch(o)
-			return
 		}
+		return
 	case 0002000:
 		if !(xor(PS&FLAGN, PS&FLAGV) != 0) {
 			branch(o)
-			return
 		}
+		return
 	case 0002400:
 		if xor(PS&FLAGN, PS&FLAGV) != 0 {
 			branch(o)
-			return
 		}
+		return
 	case 0003000:
 		if !(xor(PS&FLAGN, PS&FLAGV) != 0) && !(PS&FLAGZ == FLAGZ) {
 			branch(o)
-			return
 		}
+		return
 	case 0003400:
 		if xor(PS&FLAGN, PS&FLAGV) != 0 || (PS&FLAGZ == FLAGZ) {
 			branch(o)
-			return
 		}
+		return
 	case 0100000:
-		if !(PS&FLAGN == FLAGN) {
+		if PS&FLAGN == 0  {
 			branch(o)
-			return
 		}
+		return
 	case 0100400:
 		if PS&FLAGN == FLAGN {
 			branch(o)
-			return
 		}
+		return
 	case 0101000:
 		if !(PS&FLAGC == FLAGC) && !(PS&FLAGZ == FLAGZ) {
 			branch(o)
-			return
 		}
+		return
 	case 0101400:
 		if (PS&FLAGC == FLAGC) || (PS&FLAGZ == FLAGZ) {
 			branch(o)
-			return
 		}
+		return
 	case 0102000:
 		if !(PS&FLAGV == FLAGV) {
 			branch(o)
-			return
 		}
+		return
 	case 0102400:
 		if PS&FLAGV == FLAGV {
 			branch(o)
-			return
 		}
+		return
 	case 0103000:
 		if !(PS&FLAGC == FLAGC) {
 			branch(o)
-			return
 		}
+		return
 	case 0103400:
 		if PS&FLAGC == FLAGC {
 			branch(o)
-			return
 		}
+		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
 		var vec, prev uint16
@@ -1339,11 +1341,12 @@ func step() {
 			return
 		}
 		// clearterminal()
-		// rkreset()
+		rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
 	}
+	fmt.Println(ia, disasm(ia))
 	Trap(INTINVAL, "invalid instruction")
 }
 

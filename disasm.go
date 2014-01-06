@@ -113,6 +113,7 @@ func disasmaddr(m uint16, a uint32) string {
 
 func disasm(a uint32) string {
 	ins := memory[a>>1]
+	fmt.Println("disasm: ins:", ins)
 	msg := "???"
 	var l D
 	for i := 0; i < len(disasmtable); i++ {
