@@ -429,10 +429,10 @@ type trap struct {
 }
 
 func Trap(num uint16, msg string) {
-	panic(trap {num, msg})
+	panic(trap{num, msg})
 }
 
-func (t trap) String() string{
+func (t trap) String() string {
 	return fmt.Sprintf("trap %#d occured: %s", t.num, t.msg)
 }
 
