@@ -88,7 +88,7 @@ func rkrwsec(t bool) {
 			rkdisk[pos] = byte(val & 0xFF)
 			rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			//fmt.Printf("RKBA: %#o, pos: %x, value: %#o\n", RKBA, pos, uint16(rkdisk[pos]) | uint16(rkdisk[pos+1]) << 8)
+			// fmt.Printf("RKBA: %#o, pos: %x, value: %q %q\n", RKBA, pos, uint16(rkdisk[pos]) , uint16(rkdisk[pos+1]))
 			memory[RKBA>>1] = uint16(rkdisk[pos]) | uint16(rkdisk[pos+1])<<8
 		}
 		RKBA += 2

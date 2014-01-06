@@ -20,7 +20,6 @@ var (
 	instr             uint16            // current instruction
 	memory            [64 * 1024]uint16 // word addressing
 	tim1, tim2        uint16
-	ips               uint16
 	SR0, SR2          uint16
 	curuser, prevuser bool
 	LKS, clkcounter   uint16
@@ -173,7 +172,7 @@ func physwrite8(a uint32, v uint16) {
 		}
 	} else {
 		if a&1 == 1 {
-			physwrite16(a&^1, (physread16(a)&0xFF)|((v&0xFF)<<8))
+			physwrite16(a&^1, (physread16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
 			physwrite16(a&^1, (physread16(a)&0xFF00)|(v&0xFF))
 		}
@@ -239,10 +238,9 @@ func decode(a uint32, w, m bool) uint32 {
 		user = 0
 	}
 	p = pages[(a>>13)+user]
-	const MASK uint16 = 1
 	if w && !p.write {
 		SR0 = (1 << 13) | 1
-		SR0 |= uint16(a>>12) & ^MASK
+		SR0 |= uint16(a>>12) & ^uint16(1)
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -251,7 +249,7 @@ func decode(a uint32, w, m bool) uint32 {
 	}
 	if !p.read {
 		SR0 = (1 << 15) | 1
-		SR0 |= uint16(a>>12) & ^MASK
+		SR0 |= uint16(a>>12) & ^uint16(1)
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -263,7 +261,7 @@ func decode(a uint32, w, m bool) uint32 {
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		SR0 = (1 << 14) | 1
-		SR0 |= uint16(a>>12) & ^MASK
+		SR0 |= uint16(a>>12) & ^uint16(1)
 		if user > 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -412,7 +410,7 @@ func printstate() {
 	}
 	writedebug("]  instr " + ostr(curPC, 6) + ": " + ostr(instr, 6) + "   ")
 	writedebug(disasm(decode(uint32(curPC), false, curuser)))
-	writedebug("\n\n")
+	writedebug("\n")
 }
 
 type trap struct {
@@ -581,7 +579,6 @@ func branch(o uint16) {
 
 func step() {
 	var val, val1, val2, max, maxp, msb uint16
-	ips++
 	if waiting {
 		return
 	}
@@ -610,15 +607,15 @@ func step() {
 		val := memread(sa, l)
 		da := aget(d, l)
 		PS &= 0xFFF1
-		if val&msb != 0 {
+		if val&msb == msb {
 			PS |= FLAGN
 		}
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if int16(da) < 0 && l == 1 {
+		if da < 0 && l == 1 {
 			l = 2
-			if val&msb != 0 {
+			if val&msb == msb {
 				val |= 0xFF00
 			}
 		}
@@ -634,7 +631,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val&msb != 0 {
+		if val&msb == msb {
 			PS |= FLAGN
 		}
 		if ((val1^val2)&msb) != 0 && !((val2^val)&msb != 0) {
@@ -654,7 +651,7 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val&msb != 0 {
+		if val&msb == msb {
 			PS |= FLAGN
 		}
 		return
@@ -1306,7 +1303,7 @@ func step() {
 		}
 		writedebug("HALT\n")
 		printstate()
-		stop()
+		panic("HALT")
 		return
 	case 0000001: // WAIT
 		//		stop();
@@ -1353,7 +1350,6 @@ func reset() {
 	SR0 = 0
 	curPC = 0
 	instr = 0
-	ips = 0
 	LKS = 1 << 7
 	for i := 0; i < len(memory); i++ {
 		memory[i] = 0
@@ -1405,7 +1401,6 @@ func run() {
 }
 
 func stop() {
-	//	document.getElementById("ips").innerHTML = '';
 	//	clearInterval(tim1);
 	//	clearInterval(tim2);
 	//	tim1 = tim2 = undefined;

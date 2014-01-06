@@ -43,7 +43,7 @@ func specialchar(c uint8) {
 	}
 }
 
-var input = []uint16{ 'u', 'n', 'i', 'x', '\r', '\n'}
+var input = []uint16{'u', 'n', 'i', 'x', '\n'}
 
 func getchar() uint16 {
 	if TKS&0x80 == 0x80 {
@@ -57,10 +57,10 @@ func consread16(a uint32) uint16 {
 	//fmt.Printf("consread16: %o\n", a)
 	switch a {
 	case 0777560:
-	if len(input)> 0 {
-		addchar(input[0])
-		input = input[1:]
-	}
+		if len(input) > 0 {
+			addchar(input[0])
+			input = input[1:]
+		}
 		return TKS
 	case 0777562:
 		return getchar()
