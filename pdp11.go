@@ -106,7 +106,7 @@ func switchmode(newm bool) {
 
 func physread16(a int) int {
 	if a&1 == 1 {
-		Trap(INTBUS, "read from odd address "+ostr(a, 6))
+		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	}
 	if a < 0760000 {
 		return memory[a>>1]
@@ -138,7 +138,7 @@ func physread16(a int) int {
 	if a == 0776000 {
 		panic("lolwut")
 	}
-	Trap(INTBUS, "read from invalid address "+ostr(a, 6))
+	panic(trap{INTBUS, "read from invalid address " + ostr(a, 6)})
 	panic("unreachable")
 }
 
@@ -170,7 +170,7 @@ func physwrite8(a, v int) {
 
 func physwrite16(a, v int) {
 	if a%1 != 0 {
-		Trap(INTBUS, "write to odd address "+ostr(a, 6))
+		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}
 	if a < 0760000 {
 		memory[a>>1] = v
@@ -207,7 +207,7 @@ func physwrite16(a, v int) {
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
 		mmuwrite16(a, v)
 	} else {
-		Trap(INTBUS, "write to invalid address "+ostr(a, 6))
+		panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 	}
 }
 
@@ -233,7 +233,7 @@ func decode(a int, w, m bool) int {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
 		SR2 = curPC
-		Trap(INTFAULT, "write to read-only page "+ostr(a, 6))
+		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
 	}
 	if !p.read {
 		SR0 = (1 << 15) | 1
@@ -242,7 +242,7 @@ func decode(a int, w, m bool) int {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
 		SR2 = curPC
-		Trap(INTFAULT, "read from no-access page "+ostr(a, 6))
+		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block = a >> 6 & 0177
 	disp = a & 077
@@ -254,7 +254,7 @@ func decode(a int, w, m bool) int {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
 		SR2 = curPC
-		Trap(INTFAULT, "page length exceeded, address "+ostr(a, 6)+" (block "+ostr(block, 3)+") is beyond length "+ostr(p.len, 3))
+		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
 	}
 	if w {
 		p.pdr |= 1 << 6
@@ -288,8 +288,7 @@ func mmuread16(a int) int {
 	if (a >= 0777640) && (a < 0777660) {
 		return pages[i+8].par
 	}
-	Trap(INTBUS, "invalid read from "+ostr(a, 6))
-	panic("unreachable")
+	panic(trap{INTBUS, "invalid read from " + ostr(a, 6)})
 }
 
 func mmuwrite16(a, v int) {
@@ -310,8 +309,7 @@ func mmuwrite16(a, v int) {
 		pages[i+8] = createpage(v, pages[i+8].pdr)
 		return
 	}
-	Trap(INTBUS, "write to invalid address "+ostr(a, 6))
-	panic("unreachable")
+	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 }
 
 func read8(a int) int {
@@ -400,10 +398,6 @@ func printstate() {
 type trap struct {
 	num int
 	msg string
-}
-
-func Trap(num int, msg string) {
-	panic(trap{num, msg})
 }
 
 func (t trap) String() string {
@@ -1320,7 +1314,7 @@ func step() {
 		return
 	}
 	fmt.Println(ia, disasm(ia))
-	Trap(INTINVAL, "invalid instruction")
+	panic(trap{INTINVAL, "invalid instruction"})
 }
 
 func reset() {
