@@ -511,32 +511,32 @@ func trapat(vec uint16, msg string) {
 }
 
 func aget(v, l uint16) int {
-	var addr int
-	if (v&7) >= 6 || (v&010 != 0) {
+	if (v&7) >= 6 || (v&010 == 010) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -(int(v) + 1)
+		return -int(v + 1)
 	}
+	var addr uint16
 	switch v & 060 {
 	case 000:
 		v &= 7
-		addr = int(R[v&7])
+		addr = R[v&7]
 	case 020:
-		addr = int(R[v&7])
+		addr = R[v&7]
 		R[v&7] += l
 	case 040:
 		R[v&7] -= l
-		addr = int(R[v&7])
+		addr = R[v&7]
 	case 060:
-		addr = int(fetch16())
-		addr += int(R[v&7])
+		addr = fetch16()
+		addr += R[v&7]
 	}
 	addr &= 0xFFFF
-	if v&010 != 0 {
-		addr = int(read16(uint16(addr)))
+	if v&010 == 010 {
+		addr = read16(addr)
 	}
-	return addr
+	return int(addr)
 }
 
 func memread(a int, l uint16) uint16 {
@@ -569,6 +569,7 @@ func memwrite(a int, l, v uint16) {
 }
 
 func branch(o uint16) {
+	//printstate()
 	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
 	}
@@ -577,7 +578,7 @@ func branch(o uint16) {
 }
 
 func step() {
-	var val, val1, val2, max, maxp, msb uint16
+	var max, maxp, msb uint16
 	if waiting {
 		return
 	}
@@ -623,10 +624,10 @@ func step() {
 		return
 	case 0020000: // CMP
 		sa := aget(s, l)
-		val1 = memread(sa, l)
+		val1 := memread(sa, l)
 		da := aget(d, l)
-		val2 = memread(da, l)
-		val = (val1 - val2) & max
+		val2 := memread(da, l)
+		val := (val1 - val2) & max
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
@@ -634,7 +635,7 @@ func step() {
 		if val&msb == msb {
 			PS |= FLAGN
 		}
-		if ((val1^val2)&msb) != 0 && !((val2^val)&msb != 0) {
+		if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
 			PS |= FLAGV
 		}
 		if val1 < val2 {
@@ -643,10 +644,10 @@ func step() {
 		return
 	case 0030000: // BIT
 		sa := aget(s, l)
-		val1 = memread(sa, l)
+		val1 := memread(sa, l)
 		da := aget(d, l)
-		val2 = memread(da, l)
-		val = val1 & val2
+		val2 := memread(da, l)
+		val := val1 & val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
@@ -657,10 +658,10 @@ func step() {
 		return
 	case 0040000: // BIC
 		sa := aget(s, l)
-		val1 = memread(sa, l)
+		val1 := memread(sa, l)
 		da := aget(d, l)
-		val2 = memread(da, l)
-		val = (max ^ val1) & val2
+		val2 := memread(da, l)
+		val := (max ^ val1) & val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
@@ -672,10 +673,10 @@ func step() {
 		return
 	case 0050000: // BIS
 		sa := aget(s, l)
-		val1 = memread(sa, l)
+		val1 := memread(sa, l)
 		da := aget(d, l)
-		val2 = memread(da, l)
-		val = val1 | val2
+		val2 := memread(da, l)
+		val := val1 | val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
@@ -689,39 +690,39 @@ func step() {
 	switch instr & 0170000 {
 	case 0060000: // ADD
 		sa := aget(s, 2)
-		val1 = memread(sa, 2)
+		val1 := memread(sa, 2)
 		da := aget(d, 2)
-		val2 = memread(da, 2)
-		val = (val1 + val2) & 0xFFFF
+		val2 := memread(da, 2)
+		val := (val1 + val2) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val&0x8000 != 0 {
+		if val&0x8000 == 0x8000 {
 			PS |= FLAGN
 		}
-		if !((val1^val2)&0x8000 != 0) && ((val2^val)&0x8000 != 0) {
+		if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
 			PS |= FLAGV
 		}
-		if val1+val2 >= 0xFFFF {
+		if int(val1)+int(val2) >= 0xFFFF {
 			PS |= FLAGC
 		}
 		memwrite(da, 2, val)
 		return
 	case 0160000: // SUB
 		sa := aget(s, 2)
-		val1 = memread(sa, 2)
+		val1 := memread(sa, 2)
 		da := aget(d, 2)
-		val2 = memread(da, 2)
-		val = (val2 - val1) & 0xFFFF
+		val2 := memread(da, 2)
+		val := (val2 - val1) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		if val&0x8000 != 0 {
+		if val&0x8000 == 0x8000 {
 			PS |= FLAGN
 		}
-		if ((val1^val2)&0x8000 != 0) && !((val2^val)&0x8000 != 0) {
+		if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
 			PS |= FLAGV
 		}
 		if val1 > val2 {
@@ -741,13 +742,14 @@ func step() {
 		R[7] = uint16(val)
 		return
 	case 0070000: // MUL
-		val1 = R[s&7]
-		if val1&0x8000 != 0 {
+		printstate()
+		val1 := R[s&7]
+		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
 		da := aget(d, l)
-		val2 = memread(da, 2)
-		if val2&0x8000 != 0 {
+		val2 := memread(da, 2)
+		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
 		val3 := uint32(val1) * uint32(val2)
@@ -765,15 +767,15 @@ func step() {
 		}
 		return
 	case 0071000: // DIV
-		val1 = (R[s&7] << 16) | R[(s&7)|1]
+		val1 := (R[s&7] << 16) | R[(s&7)|1]
 		da := aget(d, l)
-		val2 = memread(da, 2)
+		val2 := memread(da, 2)
 		PS &= 0xFFF0
 		if val2 == 0 {
 			PS |= FLAGC
 			return
 		}
-		if (uint32(val1) / uint32(val2)) >= 0x10000 {
+		if int(val1/val2) >= 0x10000 {
 			PS |= FLAGV
 			return
 		}
@@ -790,10 +792,11 @@ func step() {
 		}
 		return
 	case 0072000: // ASH
-		val1 = R[s&7]
+		val1 := R[s&7]
 		da := aget(d, 2)
-		val2 = memread(da, 2) & 077
+		val2 := memread(da, 2) & 077
 		PS &= 0xFFF0
+		var val uint16
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
@@ -826,7 +829,7 @@ func step() {
 		var val uint32
 		val1 := uint32(R[s&7])<<16 | uint32(R[(s&7)|1])
 		da := aget(d, 2)
-		val2 = memread(da, 2) & 077
+		val2 := memread(da, 2) & 077
 		PS &= 0xFFF0
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
@@ -858,10 +861,10 @@ func step() {
 		}
 		return
 	case 0074000: // XOR
-		val1 = R[s&7]
+		val1 := R[s&7]
 		da := aget(d, 2)
-		val2 = memread(da, 2)
-		val = val1 ^ val2
+		val2 := memread(da, 2)
+		val := val1 ^ val2
 		PS &= 0xFFF1
 		if val == 0 {
 			PS |= FLAGZ
@@ -889,7 +892,7 @@ func step() {
 		return
 	case 0005100: // COM
 		da := aget(d, l)
-		val = memread(da, l) ^ max
+		val := memread(da, l) ^ max
 		PS &= 0xFFF0
 		PS |= FLAGC
 		if val&msb != 0 {
@@ -902,7 +905,7 @@ func step() {
 		return
 	case 0005200: // INC
 		da := aget(d, l)
-		val = (memread(da, l) + 1) & max
+		val := (memread(da, l) + 1) & max
 		PS &= 0xFFF1
 		if val&msb != 0 {
 			PS |= FLAGN | FLAGV
@@ -914,7 +917,7 @@ func step() {
 		return
 	case 0005300: // DEC
 		da := aget(d, l)
-		val = (memread(da, l) - 1) & max
+		val := (memread(da, l) - 1) & max
 		PS &= 0xFFF1
 		if val&msb != 0 {
 			PS |= FLAGN
@@ -929,7 +932,7 @@ func step() {
 		return
 	case 0005400: // NEG
 		da := aget(d, l)
-		val = (-memread(da, l)) & max
+		val := (-memread(da, l)) & max
 		PS &= 0xFFF0
 		if val&msb != 0 {
 			PS |= FLAGN
@@ -946,7 +949,7 @@ func step() {
 		return
 	case 0005500: // ADC
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
 			if (val+1)&msb != 0 {
@@ -974,7 +977,7 @@ func step() {
 		return
 	case 0005600: // SBC
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
 			if (val-1)&msb != 0 {
@@ -1017,7 +1020,7 @@ func step() {
 		return
 	case 0006000: // ROR
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		if PS&FLAGC == FLAGC {
 			val |= max + 1
 		}
@@ -1039,7 +1042,7 @@ func step() {
 		return
 	case 0006100: // ROL
 		da := aget(d, l)
-		val = memread(da, l) << 1
+		val := memread(da, l) << 1
 		if PS&FLAGC == FLAGC {
 			val |= 1
 		}
@@ -1061,7 +1064,7 @@ func step() {
 		return
 	case 0006200: // ASR
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		PS &= 0xFFF0
 		if val&1 != 0 {
 			PS |= FLAGC
@@ -1080,7 +1083,7 @@ func step() {
 		return
 	case 0006300: // ASL
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		PS &= 0xFFF0
 		if val&msb != 0 {
 			PS |= FLAGC
@@ -1117,7 +1120,7 @@ func step() {
 		return
 	case 0000300: // SWAB
 		da := aget(d, l)
-		val = memread(da, l)
+		val := memread(da, l)
 		val = ((val >> 8) | (val << 8)) & 0xFFFF
 		PS &= 0xFFF0
 		if (val & 0xFF) == 0 {
@@ -1134,7 +1137,8 @@ func step() {
 		R[5] = pop()
 		break
 	case 0006500: // MFPI
-		da := int(aget(d, 2))
+		var val uint16
+		da := aget(d, 2)
 		if da == -7 {
 			if curuser == prevuser {
 				val = R[6]
@@ -1160,8 +1164,8 @@ func step() {
 		}
 		return
 	case 0006600: // MTPI
-		da := int(aget(d, 2))
-		val = pop()
+		da := aget(d, 2)
+		val := pop()
 		if da == -7 {
 			if curuser == prevuser {
 				R[6] = val
@@ -1316,7 +1320,7 @@ func step() {
 	case 0000002: // RTI
 	case 0000006: // RTT
 		R[7] = pop()
-		val = pop()
+		val := pop()
 		if curuser {
 			val &= 047
 			val |= PS & 0177730
