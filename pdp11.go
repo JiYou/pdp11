@@ -76,12 +76,12 @@ func xor(x, y int) int {
 }
 
 type KB11 struct {
-	R     [8]int // registers
-	PS    int    // processor status
-	PC    int    // address of current instruction
-	KSP, USP          int             // kernel and user stack pointer
-	SR0, SR2          int
-	instr int    // current instruction
+	R        [8]int // registers
+	PS       int    // processor status
+	PC       int    // address of current instruction
+	KSP, USP int    // kernel and user stack pointer
+	SR0, SR2 int
+	instr    int // current instruction
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -556,14 +556,14 @@ func (k *KB11) branch(o int) {
 	k.R[7] += o
 }
 
-var buf =  []int{'l', 's', '\n'}
+var buf = []int{'s', 't', 't', 'y', ' ', '-', 'l', 'c', 'a', 's', 'e', '\n'} // , 'w', 'h', 'o',  '\n'}
 
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
-                if len(buf) > 0 {
-                        addchar(buf[0])
-                        buf = buf[1:]
+		if len(buf) > 0 {
+			addchar(buf[0])
+			buf = buf[1:]
 		}
 		return
 	}
