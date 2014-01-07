@@ -12,9 +12,7 @@ const (
 const pr = true // debug
 
 var (
-	KSP, USP          int // kernel and user stack pointer
-	curPC             int // address of current instruction
-	instr             int             // current instruction
+	KSP, USP          int             // kernel and user stack pointer
 	memory            [128 * 1024]int // word addressing
 	SR0, SR2          int
 	curuser, prevuser bool
@@ -80,8 +78,10 @@ func xor(x, y int) int {
 }
 
 type KB11 struct {
-	R  [8]int // registers
-	PS int    // processor status
+	R     [8]int // registers
+	PS    int    // processor status
+	PC    int    // address of current instruction
+	instr int    // current instruction
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -234,7 +234,7 @@ func (k *KB11) decode(a int, w, m bool) int {
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = curPC
+		SR2 = k.PC
 		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
 	}
 	if !p.read {
@@ -243,7 +243,7 @@ func (k *KB11) decode(a int, w, m bool) int {
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = curPC
+		SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block = a >> 6 & 0177
@@ -255,7 +255,7 @@ func (k *KB11) decode(a int, w, m bool) int {
 		if user > 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = curPC
+		SR2 = k.PC
 		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
 	}
 	if w {
@@ -392,8 +392,8 @@ func (k *KB11) printstate() {
 	} else {
 		writedebug(" ")
 	}
-	writedebug("]  instr " + ostr(curPC, 6) + ": " + ostr(instr, 6) + "   ")
-	writedebug(disasm(k.decode(curPC, false, curuser)))
+	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(k.instr, 6) + "   ")
+	writedebug(disasm(k.decode(k.PC, false, curuser)))
 	writedebug("\n")
 }
 
@@ -561,10 +561,11 @@ func (k *KB11) step() {
 	if waiting {
 		return
 	}
-	curPC = k.R[7]
+	k.PC = k.R[7]
 	ia := k.decode(k.R[7], false, curuser)
 	k.R[7] += 2
-	instr = k.physread16(ia)
+	k.instr = k.physread16(ia)
+	instr := k.instr
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
@@ -1322,13 +1323,12 @@ func (k *KB11) reset() {
 		k.R[i] = 0
 	}
 	k.PS = 0
+	k.PC = 0
 	KSP = 0
 	USP = 0
 	curuser = false
 	prevuser = false
 	SR0 = 0
-	curPC = 0
-	instr = 0
 	LKS = 1 << 7
 	for i := 0; i < len(memory); i++ {
 		memory[i] = 0
