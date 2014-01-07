@@ -9,7 +9,7 @@ const (
 	FLAGC = 1
 )
 
-const pr = false // debug
+const pr = true // debug
 
 var (
 	R                 = [8]int{0, 0, 0, 0, 0, 0, 0, 0} // registers
@@ -427,11 +427,9 @@ func interrupt(vec, pri int) {
 	}
 	// interrupts.splice(i, 0, {vec: vec, pri: pri});
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
-	fmt.Println("Interrupts:", interrupts)
 }
 
 func handleinterrupt(vec int) {
-	fmt.Println("handleinterrupt vec:", vec)
 	defer func() {
 		trap := recover()
 		switch trap := trap.(type) {
@@ -588,7 +586,7 @@ func step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		// printstate()
+		//printstate()
 		sa := aget(s, l)
 		val := memread(sa, l)
 		da := aget(d, l)
@@ -727,7 +725,6 @@ func step() {
 		R[7] = val
 		return
 	case 0070000: // MUL
-		printstate()
 		val1 := R[s&7]
 		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
@@ -1323,7 +1320,6 @@ func step() {
 		return
 	}
 	fmt.Println(ia, disasm(ia))
-	dumpmem()
 	Trap(INTINVAL, "invalid instruction")
 }
 
@@ -1356,35 +1352,30 @@ func reset() {
 	waiting = false
 }
 
-func nsteps(n int) {
-	for ; n != 0; n-- {
-		//		try {
-		step()
-		if len(interrupts) > 0 && interrupts[0].pri >= ((PS>>5)&7) {
-			handleinterrupt(interrupts[0].vec)
-			interrupts = interrupts[1:]
+func onestep() {
+	defer func() {
+		t := recover()
+		switch t := t.(type) {
+		case trap:
+			trapat(t.num, t.msg)
+		case nil:
+			// ignore
+		default:
+			panic(t)
 		}
-		clkcounter++
-		if clkcounter >= 40000 {
-			clkcounter = 0
-			LKS |= (1 << 7)
-			if LKS&(1<<6) != 0 {
-				interrupt(INTCLOCK, 6)
-			}
-		}
-		//		} catch(e) {
-		//			if(e.num != undefined) {
-		//				trapat(e.num, e.msg);
-		//			} else throw e;
-		//		}
-		if pr {
-			printstate()
+	}() 
+
+	step()
+	if len(interrupts) > 0 && interrupts[0].pri >= ((PS>>5)&7) {
+		handleinterrupt(interrupts[0].vec)
+		interrupts = interrupts[1:]
+	}
+	clkcounter++
+	if clkcounter >= 40000 {
+		clkcounter = 0
+		LKS |= (1 << 7)
+		if LKS&(1<<6) != 0 {
+			interrupt(INTCLOCK, 6)
 		}
 	}
-}
-
-func run() {
-	//	for {
-	nsteps(4000)
-	//	}
 }

@@ -66,7 +66,7 @@ func rkerror(code int) {
 }
 
 func rkrwsec(t bool) {
-	fmt.Println("rkrwsec: RKBA:", RKBA, "RKWC:", RKWC, "cylinder:", cylinder, "sector:", sector)
+	// fmt.Println("rkrwsec: RKBA:", RKBA, "RKWC:", RKWC, "cylinder:", cylinder, "sector:", sector)
 	if drive != 0 {
 		rkerror(RKNXD)
 	}
@@ -83,7 +83,6 @@ func rkrwsec(t bool) {
 			rkdisk[pos] = byte(val & 0xFF)
 			rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			// fmt.Printf("RKBA: %#o, pos: %x, value: %q %q\n", RKBA, pos, uint16(rkdisk[pos]) , uint16(rkdisk[pos+1]))
 			memory[RKBA>>1] = int(rkdisk[pos]) | int(rkdisk[pos+1])<<8
 		}
 		RKBA += 2
@@ -180,5 +179,4 @@ func rkinit() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(rkdisk[:256])
 }

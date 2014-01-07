@@ -22,6 +22,6 @@ func TestPDP(t *testing.T) {
 	rkinit()
 	reset()
 	for {
-		nsteps(1)
+		onestep()
 	}
 }
