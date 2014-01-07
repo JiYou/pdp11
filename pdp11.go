@@ -1363,7 +1363,7 @@ func onestep() {
 		default:
 			panic(t)
 		}
-	}() 
+	}()
 
 	step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((PS>>5)&7) {
