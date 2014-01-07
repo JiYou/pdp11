@@ -83,7 +83,7 @@ func rkrwsec(t bool) {
 			rkdisk[pos] = byte(val & 0xFF)
 			rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			memory[RKBA>>1] = int(rkdisk[pos]) | int(rkdisk[pos+1])<<8
+			memory[RKBA>>1] = uint16(rkdisk[pos]) | uint16(rkdisk[pos+1])<<8
 		}
 		RKBA += 2
 		pos += 2

@@ -17,8 +17,8 @@ var (
 	PS                int                              // processor status
 	curPC             int                              // address of current instruction
 	lastPCs           []int
-	instr             int             // current instruction
-	memory            [128 * 1024]int // word addressing
+	instr             int                // current instruction
+	memory            [128 * 1024]uint16 // word addressing
 	SR0, SR2          int
 	curuser, prevuser bool
 	LKS, clkcounter   int
@@ -109,7 +109,7 @@ func physread16(a int) int {
 		Trap(INTBUS, "read from odd address "+ostr(a, 6))
 	}
 	if a < 0760000 {
-		return memory[a>>1]
+		return int(memory[a>>1])
 	}
 	if a == 0777546 {
 		return LKS
@@ -154,10 +154,10 @@ func physwrite8(a, v int) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
-			memory[a>>1] |= (v & 0xFF) << 8
+			memory[a>>1] |= (uint16(v) & 0xFF) << 8
 		} else {
 			memory[a>>1] &= 0xFF00
-			memory[a>>1] |= v & 0xFF
+			memory[a>>1] |= uint16(v) & 0xFF
 		}
 	} else {
 		if a&1 == 1 {
@@ -173,7 +173,7 @@ func physwrite16(a, v int) {
 		Trap(INTBUS, "write to odd address "+ostr(a, 6))
 	}
 	if a < 0760000 {
-		memory[a>>1] = v
+		memory[a>>1] = uint16(v)
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:
@@ -443,8 +443,8 @@ func handleinterrupt(vec int) {
 		default:
 			panic(trap)
 		}
-		R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		R[7] = int(memory[vec>>1])
+		PS = int(memory[(vec>>1)+1])
 		if prevuser {
 			PS |= (1 << 13) | (1 << 12)
 		}
@@ -466,16 +466,16 @@ func trapat(vec int, msg string) {
 			msg string
 		}:
 			writedebug("red stack trap!\n")
-			memory[0] = R[7]
-			memory[1] = prev
+			memory[0] = uint16(R[7])
+			memory[1] = uint16(prev)
 			vec = 4
 		case nil:
 			break
 		default:
 			panic(trap)
 		}
-		R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		R[7] = int(memory[vec>>1])
+		PS = int(memory[(vec>>1)+1])
 		if prevuser {
 			PS |= (1 << 13) | (1 << 12)
 		}
@@ -1267,8 +1267,8 @@ func step() {
 		switchmode(false)
 		push(prev)
 		push(R[7])
-		R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		R[7] = int(memory[vec>>1])
+		PS = int(memory[(vec>>1)+1])
 		if prevuser {
 			PS |= (1 << 13) | (1 << 12)
 		}
@@ -1340,7 +1340,7 @@ func reset() {
 		memory[i] = 0
 	}
 	for i := 0; i < len(bootrom); i++ {
-		memory[01000+i] = int(bootrom[i])
+		memory[01000+i] = bootrom[i]
 	}
 	for i := 0; i < 16; i++ {
 		pages[i] = createpage(0, 0)
