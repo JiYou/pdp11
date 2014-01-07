@@ -173,6 +173,8 @@ func rkreset() {
 
 var rkdisk []byte
 
+var RKINIT = rkinit
+
 func rkinit() {
 	var err error
 	rkdisk, err = ioutil.ReadFile("rk0")
