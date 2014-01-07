@@ -13,7 +13,6 @@ const pr = true // debug
 
 var (
 	KSP, USP          int // kernel and user stack pointer
-	PS                int // processor status
 	curPC             int // address of current instruction
 	lastPCs           []int
 	instr             int             // current instruction
@@ -82,7 +81,8 @@ func xor(x, y int) int {
 }
 
 type KB11 struct {
-	R [8]int // registers
+	R  [8]int // registers
+	PS int    // processor status
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -98,12 +98,12 @@ func (k *KB11) switchmode(newm bool) {
 	} else {
 		k.R[6] = KSP
 	}
-	PS &= 0007777
+	k.PS &= 0007777
 	if curuser {
-		PS |= (1 << 15) | (1 << 14)
+		k.PS |= (1 << 15) | (1 << 14)
 	}
 	if prevuser {
-		PS |= (1 << 13) | (1 << 12)
+		k.PS |= (1 << 13) | (1 << 12)
 	}
 }
 
@@ -127,7 +127,7 @@ func (k *KB11) physread16(a int) int {
 		return SR2
 	}
 	if a == 0777776 {
-		return PS
+		return k.PS
 	}
 	if a&0777770 == 0777560 {
 		return consread16(a)
@@ -198,7 +198,7 @@ func (k *KB11) physwrite16(a, v int) {
 		default:
 			panic("invalid mode")
 		}
-		PS = v
+		k.PS = v
 	} else if a == 0777546 {
 		LKS = v
 	} else if a == 0777572 {
@@ -373,22 +373,22 @@ func (k *KB11) printstate() {
 	} else {
 		writedebug("K")
 	}
-	if PS&FLAGN != 0 {
+	if k.PS&FLAGN != 0 {
 		writedebug("N")
 	} else {
 		writedebug(" ")
 	}
-	if PS&FLAGZ != 0 {
+	if k.PS&FLAGZ != 0 {
 		writedebug("Z")
 	} else {
 		writedebug(" ")
 	}
-	if PS&FLAGV != 0 {
+	if k.PS&FLAGV != 0 {
 		writedebug("V")
 	} else {
 		writedebug(" ")
 	}
-	if PS&FLAGC != 0 {
+	if k.PS&FLAGC != 0 {
 		writedebug("C")
 	} else {
 		writedebug(" ")
@@ -441,13 +441,13 @@ func (k *KB11) handleinterrupt(vec int) {
 			panic(trap)
 		}
 		k.R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
-			PS |= (1 << 13) | (1 << 12)
+			k.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
-	prev := PS
+	prev := k.PS
 	k.switchmode(false)
 	k.push(prev)
 	k.push(k.R[7])
@@ -472,9 +472,9 @@ func (k *KB11) trapat(vec int, msg string) {
 			panic(trap)
 		}
 		k.R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
-			PS |= (1 << 13) | (1 << 12)
+			k.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
@@ -484,7 +484,7 @@ func (k *KB11) trapat(vec int, msg string) {
 	writedebug("trap " + ostr(vec, 6) + " occured: " + msg + "\n")
 	k.printstate()
 
-	prev = PS
+	prev = k.PS
 	k.switchmode(false)
 	k.push(prev)
 	k.push(k.R[7])
@@ -587,12 +587,12 @@ func (k *KB11) step() {
 		sa := k.aget(s, l)
 		val := k.memread(sa, l)
 		da := k.aget(d, l)
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val&msb == msb {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if da < 0 && l == 1 {
 			l = 2
@@ -608,18 +608,18 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := (val1 - val2) & max
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&msb == msb {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		if val1 < val2 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		return
 	case 0030000: // BIT
@@ -628,12 +628,12 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := val1 & val2
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&msb == msb {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		return
 	case 0040000: // BIC
@@ -642,12 +642,12 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := (max ^ val1) & val2
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		k.memwrite(da, l, val)
 		return
@@ -657,12 +657,12 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := val1 | val2
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		k.memwrite(da, l, val)
 		return
@@ -674,18 +674,18 @@ func (k *KB11) step() {
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := (val1 + val2) & 0xFFFF
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x8000 == 0x8000 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		if int(val1)+int(val2) >= 0xFFFF {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		k.memwrite(da, 2, val)
 		return
@@ -695,18 +695,18 @@ func (k *KB11) step() {
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := (val2 - val1) & 0xFFFF
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x8000 == 0x8000 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		if val1 > val2 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		k.memwrite(da, 2, val)
 		return
@@ -734,47 +734,47 @@ func (k *KB11) step() {
 		val3 := val1 * val2
 		k.R[s&7] = (val3 & 0xFFFF0000) >> 16
 		k.R[(s&7)|1] = val3 & 0xFFFF
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val3&0x80000000 != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if (val3 & 0xFFFFFFFF) == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val3 < (1<<15) || val3 >= ((1<<15)-1) {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		return
 	case 0071000: // DIV
 		val1 := (k.R[s&7] << 16) | k.R[(s&7)|1]
 		da := k.aget(d, l)
 		val2 := k.memread(da, 2)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val2 == 0 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 			return
 		}
 		if int(val1/val2) >= 0x10000 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 			return
 		}
 		k.R[s&7] = (val1 / val2) & 0xFFFF
 		k.R[(s&7)|1] = (val1 % val2) & 0xFFFF
 		if k.R[s&7] == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if k.R[s&7]&0100000 == 0100000 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val1 == 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		return
 	case 0072000: // ASH
 		val1 := uint(k.R[s&7])
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		var val uint
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
@@ -785,30 +785,30 @@ func (k *KB11) step() {
 				val = val1 >> val2
 			}
 			if val1&(1<<(val2-1)) != 0 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
 			if val1&(1<<(16-val2)) != 0 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 		}
 		k.R[s&7] = int(val)
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0100000 != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if xor(int(val&0100000), int(val1&0100000)) != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
 		val1 := uint(k.R[s&7]<<16 | k.R[(s&7)|1])
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		var val uint
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
@@ -819,24 +819,24 @@ func (k *KB11) step() {
 				val = val1 >> val2
 			}
 			if val1&(1<<(val2-1)) != 0 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFFFFFF
 			if val1&(1<<(32-val2)) != 0 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 		}
 		k.R[s&7] = int((val >> 16) & 0xFFFF)
 		k.R[(s&7)|1] = int(val & 0xFFFF)
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x80000000 != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if xor(int(val&0x80000000), int(val1&0x80000000)) != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		return
 	case 0074000: // XOR
@@ -844,12 +844,12 @@ func (k *KB11) step() {
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := val1 ^ val2
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x8000 == 0x8000 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, 2, val)
 		return
@@ -864,157 +864,157 @@ func (k *KB11) step() {
 	}
 	switch instr & 0077700 {
 	case 0005000: // CLR
-		PS &= 0xFFF0
-		PS |= FLAGZ
+		k.PS &= 0xFFF0
+		k.PS |= FLAGZ
 		da := k.aget(d, l)
 		k.memwrite(da, l, 0)
 		return
 	case 0005100: // COM
 		da := k.aget(d, l)
 		val := k.memread(da, l) ^ max
-		PS &= 0xFFF0
-		PS |= FLAGC
+		k.PS &= 0xFFF0
+		k.PS |= FLAGC
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0005200: // INC
 		da := k.aget(d, l)
 		val := (k.memread(da, l) + 1) & max
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val&msb != 0 {
-			PS |= FLAGN | FLAGV
+			k.PS |= FLAGN | FLAGV
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0005300: // DEC
 		da := k.aget(d, l)
 		val := (k.memread(da, l) - 1) & max
-		PS &= 0xFFF1
+		k.PS &= 0xFFF1
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val == maxp {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0005400: // NEG
 		da := k.aget(d, l)
 		val := (-k.memread(da, l)) & max
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		} else {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		if val == 0x8000 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0005500: // ADC
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		if PS&FLAGC == FLAGC {
-			PS &= 0xFFF0
+		if k.PS&FLAGC == FLAGC {
+			k.PS &= 0xFFF0
 			if (val+1)&msb != 0 {
-				PS |= FLAGN
+				k.PS |= FLAGN
 			}
 			if val == max {
-				PS |= FLAGZ
+				k.PS |= FLAGZ
 			}
 			if val == 0077777 {
-				PS |= FLAGV
+				k.PS |= FLAGV
 			}
 			if val == 0177777 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 			k.memwrite(da, l, (val+1)&max)
 		} else {
-			PS &= 0xFFF0
+			k.PS &= 0xFFF0
 			if val&msb != 0 {
-				PS |= FLAGN
+				k.PS |= FLAGN
 			}
 			if val == 0 {
-				PS |= FLAGZ
+				k.PS |= FLAGZ
 			}
 		}
 		return
 	case 0005600: // SBC
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		if PS&FLAGC == FLAGC {
-			PS &= 0xFFF0
+		if k.PS&FLAGC == FLAGC {
+			k.PS &= 0xFFF0
 			if (val-1)&msb != 0 {
-				PS |= FLAGN
+				k.PS |= FLAGN
 			}
 			if val == 1 {
-				PS |= FLAGZ
+				k.PS |= FLAGZ
 			}
 			if val != 0 {
-				PS |= FLAGC
+				k.PS |= FLAGC
 			}
 			if val == 0100000 {
-				PS |= FLAGV
+				k.PS |= FLAGV
 			}
 			k.memwrite(da, l, (val-1)&max)
 		} else {
-			PS &= 0xFFF0
+			k.PS &= 0xFFF0
 			if val&msb != 0 {
-				PS |= FLAGN
+				k.PS |= FLAGN
 			}
 			if val == 0 {
-				PS |= FLAGZ
+				k.PS |= FLAGZ
 			}
 			if val == 0100000 {
-				PS |= FLAGV
+				k.PS |= FLAGV
 			}
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		return
 	case 0005700: // TST
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		return
 	case 0006000: // ROR
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		if PS&FLAGC == FLAGC {
+		if k.PS&FLAGC == FLAGC {
 			val |= max + 1
 		}
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&1 == 1 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		if val&(max+1) != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if !(val&max != 0) {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if xor(val&1, val&(max+1)) != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		val >>= 1
 		k.memwrite(da, l, val)
@@ -1022,21 +1022,21 @@ func (k *KB11) step() {
 	case 0006100: // ROL
 		da := k.aget(d, l)
 		val := k.memread(da, l) << 1
-		if PS&FLAGC == FLAGC {
+		if k.PS&FLAGC == FLAGC {
 			val |= 1
 		}
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&(max+1) != 0 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if !(val&max != 0) {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if (val^(val>>1))&msb != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		val &= max
 		k.memwrite(da, l, val)
@@ -1044,47 +1044,47 @@ func (k *KB11) step() {
 	case 0006200: // ASR
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&1 != 0 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		if val&msb != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if xor(val&msb, val&1) != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		val = (val & msb) | (val >> 1)
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0006300: // ASL
 		da := k.aget(d, l)
 		val := k.memread(da, l)
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if val&msb != 0 {
-			PS |= FLAGC
+			k.PS |= FLAGC
 		}
 		if val&(msb>>1) != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		if (val^(val<<1))&msb != 0 {
-			PS |= FLAGV
+			k.PS |= FLAGV
 		}
 		val = (val << 1) & max
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		k.memwrite(da, l, val)
 		return
 	case 0006700: // SXT
 		da := k.aget(d, l)
-		if PS&FLAGN == FLAGN {
+		if k.PS&FLAGN == FLAGN {
 			k.memwrite(da, l, max)
 		} else {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 			k.memwrite(da, l, 0)
 		}
 		return
@@ -1101,12 +1101,12 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		val = ((val >> 8) | (val << 8)) & 0xFFFF
-		PS &= 0xFFF0
+		k.PS &= 0xFFF0
 		if (val & 0xFF) == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x80 == 0x80 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		k.memwrite(da, l, val)
 		return
@@ -1133,13 +1133,13 @@ func (k *KB11) step() {
 			val = k.physread16(k.decode(da, false, prevuser))
 		}
 		k.push(val)
-		PS &= 0xFFF0
-		PS |= FLAGC
+		k.PS &= 0xFFF0
+		k.PS |= FLAGC
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x8000 != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		return
 	case 0006600: // MTPI
@@ -1159,13 +1159,13 @@ func (k *KB11) step() {
 			sa := k.decode(da, true, prevuser)
 			k.physwrite16(sa, val)
 		}
-		PS &= 0xFFF0
-		PS |= FLAGC
+		k.PS &= 0xFFF0
+		k.PS |= FLAGC
 		if val == 0 {
-			PS |= FLAGZ
+			k.PS |= FLAGZ
 		}
 		if val&0x8000 != 0 {
-			PS |= FLAGN
+			k.PS |= FLAGN
 		}
 		return
 	}
@@ -1179,72 +1179,72 @@ func (k *KB11) step() {
 		k.branch(o)
 		return
 	case 0001000:
-		if !(PS&FLAGZ == FLAGZ) {
+		if !(k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0001400:
-		if PS&FLAGZ == FLAGZ {
+		if k.PS&FLAGZ == FLAGZ {
 			k.branch(o)
 		}
 		return
 	case 0002000:
-		if !(xor(PS&FLAGN, PS&FLAGV) != 0) {
+		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) {
 			k.branch(o)
 		}
 		return
 	case 0002400:
-		if xor(PS&FLAGN, PS&FLAGV) != 0 {
+		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 {
 			k.branch(o)
 		}
 		return
 	case 0003000:
-		if !(xor(PS&FLAGN, PS&FLAGV) != 0) && !(PS&FLAGZ == FLAGZ) {
+		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0003400:
-		if xor(PS&FLAGN, PS&FLAGV) != 0 || (PS&FLAGZ == FLAGZ) {
+		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0100000:
-		if PS&FLAGN == 0 {
+		if k.PS&FLAGN == 0 {
 			k.branch(o)
 		}
 		return
 	case 0100400:
-		if PS&FLAGN == FLAGN {
+		if k.PS&FLAGN == FLAGN {
 			k.branch(o)
 		}
 		return
 	case 0101000:
-		if !(PS&FLAGC == FLAGC) && !(PS&FLAGZ == FLAGZ) {
+		if !(k.PS&FLAGC == FLAGC) && !(k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0101400:
-		if (PS&FLAGC == FLAGC) || (PS&FLAGZ == FLAGZ) {
+		if (k.PS&FLAGC == FLAGC) || (k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0102000:
-		if !(PS&FLAGV == FLAGV) {
+		if !(k.PS&FLAGV == FLAGV) {
 			k.branch(o)
 		}
 		return
 	case 0102400:
-		if PS&FLAGV == FLAGV {
+		if k.PS&FLAGV == FLAGV {
 			k.branch(o)
 		}
 		return
 	case 0103000:
-		if !(PS&FLAGC == FLAGC) {
+		if !(k.PS&FLAGC == FLAGC) {
 			k.branch(o)
 		}
 		return
 	case 0103400:
-		if PS&FLAGC == FLAGC {
+		if k.PS&FLAGC == FLAGC {
 			k.branch(o)
 		}
 		return
@@ -1260,22 +1260,22 @@ func (k *KB11) step() {
 		} else {
 			vec = 020
 		}
-		prev = PS
+		prev = k.PS
 		k.switchmode(false)
 		k.push(prev)
 		k.push(k.R[7])
 		k.R[7] = memory[vec>>1]
-		PS = memory[(vec>>1)+1]
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
-			PS |= (1 << 13) | (1 << 12)
+			k.PS |= (1 << 13) | (1 << 12)
 		}
 		return
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			PS |= instr & 017
+			k.PS |= instr & 017
 		} else {
-			PS &= ^(instr & 017)
+			k.PS &= ^(instr & 017)
 		}
 		return
 	}
@@ -1302,7 +1302,7 @@ func (k *KB11) step() {
 		val := k.pop()
 		if curuser {
 			val &= 047
-			val |= PS & 0177730
+			val |= k.PS & 0177730
 		}
 		k.physwrite16(0777776, val)
 		return
@@ -1324,7 +1324,7 @@ func (k *KB11) reset() {
 	for i := 0; i < 7; i++ {
 		k.R[i] = 0
 	}
-	PS = 0
+	k.PS = 0
 	KSP = 0
 	USP = 0
 	curuser = false
@@ -1363,7 +1363,7 @@ func (k *KB11) onestep() {
 	}()
 
 	k.step()
-	if len(interrupts) > 0 && interrupts[0].pri >= ((PS>>5)&7) {
+	if len(interrupts) > 0 && interrupts[0].pri >= ((k.PS>>5)&7) {
 		k.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
 	}
