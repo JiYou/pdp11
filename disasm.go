@@ -72,17 +72,19 @@ var disasmtable = []D{
 func disasmaddr(m, a int) string {
 	if (m & 7) == 7 {
 		switch m {
+		case 007:
+			return "PC" // guess
 		case 027:
 			a += 2
-			return fmt.Sprintf("$%#o", memory[a>>1])
+			return fmt.Sprintf("$%06o", memory[a>>1])
 		case 037:
 			a += 2
-			return fmt.Sprintf("*%#o", memory[a>>1])
+			return fmt.Sprintf("*%06o", memory[a>>1])
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%#o", (a+2+memory[a>>1])&0xFFFF)
+			return fmt.Sprintf("*%06o", (a+2+memory[a>>1])&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%#o", (a+2+memory[a>>1])&0xFFFF)
+			return fmt.Sprintf("**%06o", (a+2+memory[a>>1])&0xFFFF)
 		default:
 			panic("disasmaddr: unhandled m")
 		}
@@ -103,12 +105,12 @@ func disasmaddr(m, a int) string {
 		return "*-(" + r + ")"
 	case 060:
 		a += 2
-		fmt.Sprintf("%#o (%q)", memory[a>>1], r)
+		return fmt.Sprintf("%06o (%s)", memory[a>>1], r)
 	case 070:
 		a += 2
-		fmt.Sprintf("*%#o (%q)", memory[a>>1], r)
+		return fmt.Sprintf("*%06o (%s)", memory[a>>1], r)
 	}
-	return "XXX" // panic("disasmadr: unknown register")
+	panic(fmt.Sprintf("disasmaddr: unknown addressing mode, register %v, mode %o", r, m&070))
 }
 
 func disasm(a int) string {
