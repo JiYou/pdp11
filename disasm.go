@@ -5,7 +5,7 @@ import "fmt"
 var rs = [...]string{"R0", "R1", "R2", "R3", "R4", "R5", "SP", "PC"}
 
 type D struct {
-	inst, arg uint16
+	inst, arg int
 	msg       string
 	flag      string
 	b         bool
@@ -69,7 +69,7 @@ var disasmtable = []D{
 	{0177777, 0000004, "IOT", "", false},
 }
 
-func disasmaddr(m uint16, a uint32) string {
+func disasmaddr(m, a int) string {
 	if (m & 7) == 7 {
 		switch m {
 		case 027:
@@ -80,9 +80,9 @@ func disasmaddr(m uint16, a uint32) string {
 			return fmt.Sprintf("*%#o", memory[a>>1])
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%#o", (a+2+uint32(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("*%#o", (a+2+memory[a>>1])&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%#o", (a+2+uint32(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("**%#o", (a+2+memory[a>>1])&0xFFFF)
 		default:
 			panic("disasmaddr: unhandled m")
 		}
@@ -108,10 +108,10 @@ func disasmaddr(m uint16, a uint32) string {
 		a += 2
 		fmt.Sprintf("*%#o (%q)", memory[a>>1], r)
 	}
-	panic("disasmadr: unknown register")
+	return "XXX" // panic("disasmadr: unknown register")
 }
 
-func disasm(a uint32) string {
+func disasm(a int) string {
 	ins := memory[a>>1]
 	msg := "???"
 	var l D

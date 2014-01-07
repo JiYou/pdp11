@@ -4,18 +4,18 @@ import "os"
 
 //import "fmt"
 
-var TKS, TPS, keybuf uint16
+var TKS, TPS, keybuf int
 
 func clearterminal() {
 	TKS = 0
 	TPS = 1 << 7
 }
 
-func writeterminal(c uint16) {
+func writeterminal(c int) {
 	os.Stdout.Write([]byte{byte(c)})
 }
 
-func addchar(c uint16) {
+func addchar(c int) {
 	TKS |= 0x80
 	keybuf = c
 	if TKS&(1<<6) != 0 {
@@ -23,7 +23,7 @@ func addchar(c uint16) {
 	}
 }
 
-func specialchar(c uint8) {
+func specialchar(c int) {
 	switch c {
 	case 42:
 		keybuf = 4
@@ -43,9 +43,9 @@ func specialchar(c uint8) {
 	}
 }
 
-var input = []uint16{'u', 'n', 'i', 'x', '\n'}
+var input = []int{'u', 'n', 'i', 'x', '\n'}
 
-func getchar() uint16 {
+func getchar() int {
 	if TKS&0x80 == 0x80 {
 		TKS &= 0xff7e
 		return keybuf
@@ -53,7 +53,7 @@ func getchar() uint16 {
 	return 0
 }
 
-func consread16(a uint32) uint16 {
+func consread16(a int) int {
 	//fmt.Printf("consread16: %o\n", a)
 	switch a {
 	case 0777560:
@@ -72,20 +72,20 @@ func consread16(a uint32) uint16 {
 	panic("read from invalid address " + ostr(a, 6))
 }
 
-func conswrite16(a uint32, v uint16) {
+func conswrite16(a, v int) {
 	//fmt.Printf("conswrite16: %o, %o\n", a,v )
 	switch a {
 	case 0777560:
 		if v&(1<<6) != 0 {
 			TKS |= 1 << 6
 		} else {
-			TKS &= ^uint16(1 << 6)
+			TKS &= ^(1 << 6)
 		}
 	case 0777564:
 		if v&(1<<6) != 0 {
 			TPS |= 1 << 6
 		} else {
-			TPS &= ^uint16(1 << 6)
+			TPS &= ^(1 << 6)
 		}
 	case 0777566:
 		v &= 0xFF

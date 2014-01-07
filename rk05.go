@@ -3,8 +3,7 @@ package pdp11
 import "fmt"
 import "io/ioutil"
 
-var RKBA int
-var RKDS, RKER, RKCS, RKWC, drive, sector, surface, cylinder, rkimg uint16
+var RKBA, RKDS, RKER, RKCS, RKWC, drive, sector, surface, cylinder, rkimg int
 
 const imglen = 2077696
 
@@ -15,18 +14,18 @@ const (
 	RKNXS = (1 << 5)
 )
 
-func rkread16(a uint32) uint16 {
+func rkread16(a int) int {
 	switch a {
 	case 0777400:
 		return RKDS
 	case 0777402:
 		return RKER
 	case 0777404:
-		return RKCS | uint16((RKBA&0x30000)>>12)
+		return RKCS | (RKBA&0x30000)>>12
 	case 0777406:
 		return RKWC
 	case 0777410:
-		return uint16(RKBA & 0xFFFF)
+		return RKBA & 0xFFFF
 	case 0777412:
 		return (sector) | (surface << 4) | (cylinder << 5) | (drive << 13)
 	default:
@@ -35,8 +34,8 @@ func rkread16(a uint32) uint16 {
 }
 
 func rknotready() {
-	RKDS &= ^uint16(1 << 6)
-	RKCS &= ^uint16(1 << 7)
+	RKDS &= ^(1 << 6)
+	RKCS &= ^(1 << 7)
 }
 
 func rkready() {
@@ -44,7 +43,7 @@ func rkready() {
 	RKCS |= 1 << 7
 }
 
-func rkerror(code uint16) {
+func rkerror(code int) {
 	var msg string
 	rkready()
 	RKER |= code
@@ -85,7 +84,7 @@ func rkrwsec(t bool) {
 			rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
 			// fmt.Printf("RKBA: %#o, pos: %x, value: %q %q\n", RKBA, pos, uint16(rkdisk[pos]) , uint16(rkdisk[pos+1]))
-			memory[RKBA>>1] = uint16(rkdisk[pos]) | uint16(rkdisk[pos+1])<<8
+			memory[RKBA>>1] = int(rkdisk[pos]) | int(rkdisk[pos+1])<<8
 		}
 		RKBA += 2
 		pos += 2
@@ -131,18 +130,18 @@ func rkgo() {
 	}
 }
 
-func rkwrite16(a uint32, v uint16) {
+func rkwrite16(a, v int) {
 	switch a {
 	case 0777400:
 		break
 	case 0777402:
 		break
 	case 0777404:
-		RKBA = int(uint16(RKBA&0xFFFF) | ((v & 060) << 12))
-		const BITS uint16 = 017517
+		RKBA = (RKBA & 0xFFFF) | ((v & 060) << 12)
+		const BITS = 017517
 		v &= BITS // writable bits
 		RKCS &= ^BITS
-		RKCS |= v & ^uint16(1) // don't set GO bit
+		RKCS |= v & ^1 // don't set GO bit
 		if v&1 == 1 {
 			rkgo()
 		}
@@ -151,7 +150,7 @@ func rkwrite16(a uint32, v uint16) {
 		RKWC = v
 		break
 	case 0777410:
-		RKBA = (RKBA & 0x30000) | int(v)
+		RKBA = (RKBA & 0x30000) | (v)
 		break
 	case 0777412:
 		drive = v >> 13

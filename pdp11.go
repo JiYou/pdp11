@@ -12,28 +12,27 @@ const (
 const pr = false // debug
 
 var (
-	R                 = [8]uint16{0, 0, 0, 0, 0, 0, 0, 0} // registers
-	KSP, USP          uint16                              // kernel and user stack pointer
-	PS                uint16                              // processor status
-	curPC             uint16                              // address of current instruction
-	lastPCs           []uint16
-	instr             uint16            // current instruction
-	memory            [64 * 1024]uint16 // word addressing
-	tim1, tim2        uint16
-	SR0, SR2          uint16
+	R                 = [8]int{0, 0, 0, 0, 0, 0, 0, 0} // registers
+	KSP, USP          int                              // kernel and user stack pointer
+	PS                int                              // processor status
+	curPC             int                              // address of current instruction
+	lastPCs           []int
+	instr             int             // current instruction
+	memory            [128 * 1024]int // word addressing
+	SR0, SR2          int
 	curuser, prevuser bool
-	LKS, clkcounter   uint16
+	LKS, clkcounter   int
 	waiting           = false
 	interrupts        []intr
 )
 
-type intr struct{ vec, pri uint16 }
+type intr struct{ vec, pri int }
 
 var pages [16]page
 
 type page struct {
-	par, pdr        uint16
-	addr, len       uint32
+	par, pdr        int
+	addr, len       int
 	read, write, ed bool
 }
 
@@ -76,14 +75,7 @@ var bootrom = [...]uint16{
 	0005007, /* CLR PC */
 }
 
-func xor(x, y uint16) uint16 {
-	a := x & y
-	b := ^x & ^y
-	z := ^a & ^b
-	return z
-}
-
-func xor32(x, y uint32) uint32 {
+func xor(x, y int) int {
 	a := x & y
 	b := ^x & ^y
 	z := ^a & ^b
@@ -112,7 +104,7 @@ func switchmode(newm bool) {
 	}
 }
 
-func physread16(a uint32) uint16 {
+func physread16(a int) int {
 	if a&1 == 1 {
 		Trap(INTBUS, "read from odd address "+ostr(a, 6))
 	}
@@ -150,17 +142,15 @@ func physread16(a uint32) uint16 {
 	panic("unreachable")
 }
 
-func physread8(a uint32) uint16 {
-	var val uint16
-	const MASK uint32 = 1
-	val = physread16(a & ^MASK)
+func physread8(a int) int {
+	val := physread16(a & ^1)
 	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
 }
 
-func physwrite8(a uint32, v uint16) {
+func physwrite8(a, v int) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
@@ -178,7 +168,7 @@ func physwrite8(a uint32, v uint16) {
 	}
 }
 
-func physwrite16(a uint32, v uint16) {
+func physwrite16(a, v int) {
 	if a%1 != 0 {
 		Trap(INTBUS, "write to odd address "+ostr(a, 6))
 	}
@@ -221,10 +211,9 @@ func physwrite16(a uint32, v uint16) {
 	}
 }
 
-func decode(a uint32, w, m bool) uint32 {
+func decode(a int, w, m bool) int {
 	var p page
-	var user uint32
-	var block, disp uint32
+	var user, block, disp int
 	if !(SR0&1 == 1) {
 		if a >= 0170000 {
 			a += 0600000
@@ -239,7 +228,7 @@ func decode(a uint32, w, m bool) uint32 {
 	p = pages[(a>>13)+user]
 	if w && !p.write {
 		SR0 = (1 << 13) | 1
-		SR0 |= uint16(a>>12) & ^uint16(1)
+		SR0 |= (a >> 12) & ^(1)
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -248,7 +237,7 @@ func decode(a uint32, w, m bool) uint32 {
 	}
 	if !p.read {
 		SR0 = (1 << 15) | 1
-		SR0 |= uint16(a>>12) & ^uint16(1)
+		SR0 |= (a >> 12) & ^(1)
 		if user != 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -260,12 +249,12 @@ func decode(a uint32, w, m bool) uint32 {
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		SR0 = (1 << 14) | 1
-		SR0 |= uint16(a>>12) & ^uint16(1)
+		SR0 |= (a >> 12) & ^(1)
 		if user > 0 {
 			SR0 |= (1 << 5) | (1 << 6)
 		}
 		SR2 = curPC
-		Trap(INTFAULT, "page length exceeded, address "+ostr(a, 6)+" (block "+ostr(uint32(block), 3)+") is beyond length "+ostr(uint32(p.len), 3))
+		Trap(INTFAULT, "page length exceeded, address "+ostr(a, 6)+" (block "+ostr(block, 3)+") is beyond length "+ostr(p.len, 3))
 	}
 	if w {
 		p.pdr |= 1 << 6
@@ -273,21 +262,20 @@ func decode(a uint32, w, m bool) uint32 {
 	return ((block + p.addr) << 6) + disp
 }
 
-func createpage(par, pdr uint16) page {
+func createpage(par, pdr int) page {
 	return page{
 		par:   par,
 		pdr:   pdr,
-		addr:  uint32(par & 07777),
-		len:   uint32(pdr>>8) & 0x7F,
+		addr:  par & 07777,
+		len:   pdr >> 8 & 0x7F,
 		read:  (pdr & 2) == 2,
 		write: (pdr & 6) == 6,
 		ed:    (pdr & 8) == 8,
 	}
 }
 
-func mmuread16(a uint32) uint16 {
-	var i uint16
-	i = uint16((a & 017) >> 1)
+func mmuread16(a int) int {
+	i := ((a & 017) >> 1)
 	if (a >= 0772300) && (a < 0772320) {
 		return pages[i].pdr
 	}
@@ -304,9 +292,8 @@ func mmuread16(a uint32) uint16 {
 	panic("unreachable")
 }
 
-func mmuwrite16(a uint32, v uint16) {
-	var i uint16
-	i = uint16((a & 017) >> 1)
+func mmuwrite16(a, v int) {
+	i := ((a & 017) >> 1)
 	if (a >= 0772300) && (a < 0772320) {
 		pages[i] = createpage(pages[i].par, v)
 		return
@@ -327,42 +314,40 @@ func mmuwrite16(a uint32, v uint16) {
 	panic("unreachable")
 }
 
-func read8(a uint16) uint16 {
-	return physread8(decode(uint32(a), false, curuser))
+func read8(a int) int {
+	return physread8(decode(a, false, curuser))
 }
 
-func read16(a uint16) uint16 {
-	return physread16(decode(uint32(a), false, curuser))
+func read16(a int) int {
+	return physread16(decode(a, false, curuser))
 }
 
-func write8(a, v uint16) {
-	physwrite8(decode(uint32(a), true, curuser), v)
+func write8(a, v int) {
+	physwrite8(decode(a, true, curuser), v)
 }
 
-func write16(a, v uint16) {
-	physwrite16(decode(uint32(a), true, curuser), v)
+func write16(a, v int) {
+	physwrite16(decode(a, true, curuser), v)
 }
 
-func fetch16() uint16 {
+func fetch16() int {
 	val := read16(R[7])
 	R[7] += 2
 	return val
 }
 
-func push(v uint16) {
+func push(v int) {
 	R[6] -= 2
 	write16(R[6], v)
 }
 
-// func pop(v uint16) uint16 {
-func pop() uint16 {
-	var val uint16
-	val = read16(R[6])
+func pop() int {
+	val := read16(R[6])
 	R[6] += 2
 	return val
 }
 
-func ostr(z interface{}, n uint16) string {
+func ostr(z interface{}, n int) string {
 	return fmt.Sprintf("%#o", z)
 }
 
@@ -408,16 +393,16 @@ func printstate() {
 		writedebug(" ")
 	}
 	writedebug("]  instr " + ostr(curPC, 6) + ": " + ostr(instr, 6) + "   ")
-	writedebug(disasm(decode(uint32(curPC), false, curuser)))
+	writedebug(disasm(decode(curPC, false, curuser)))
 	writedebug("\n")
 }
 
 type trap struct {
-	num uint16
+	num int
 	msg string
 }
 
-func Trap(num uint16, msg string) {
+func Trap(num int, msg string) {
 	panic(trap{num, msg})
 }
 
@@ -425,7 +410,7 @@ func (t trap) String() string {
 	return fmt.Sprintf("trap %#d occured: %s", t.num, t.msg)
 }
 
-func interrupt(vec, pri uint16) {
+func interrupt(vec, pri int) {
 	var i int
 	if vec&1 == 1 {
 		panic("Thou darst calling interrupt() with an odd vector number?")
@@ -445,13 +430,13 @@ func interrupt(vec, pri uint16) {
 	fmt.Println("Interrupts:", interrupts)
 }
 
-func handleinterrupt(vec uint16) {
+func handleinterrupt(vec int) {
 	fmt.Println("handleinterrupt vec:", vec)
 	defer func() {
 		trap := recover()
 		switch trap := trap.(type) {
 		case struct {
-			num uint16
+			num int
 			msg string
 		}:
 			trapat(trap.num, trap.msg)
@@ -473,13 +458,13 @@ func handleinterrupt(vec uint16) {
 	push(R[7])
 }
 
-func trapat(vec uint16, msg string) {
-	var prev uint16
+func trapat(vec int, msg string) {
+	var prev int
 	defer func() {
 		trap := recover()
 		switch trap := trap.(type) {
 		case struct {
-			num uint16
+			num int
 			msg string
 		}:
 			writedebug("red stack trap!\n")
@@ -510,14 +495,14 @@ func trapat(vec uint16, msg string) {
 	push(R[7])
 }
 
-func aget(v, l uint16) int {
+func aget(v, l int) int {
 	if (v&7) >= 6 || (v&010 == 010) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -int(v + 1)
+		return -(v + 1)
 	}
-	var addr uint16
+	var addr int
 	switch v & 060 {
 	case 000:
 		v &= 7
@@ -536,10 +521,10 @@ func aget(v, l uint16) int {
 	if v&010 == 010 {
 		addr = read16(addr)
 	}
-	return int(addr)
+	return addr
 }
 
-func memread(a int, l uint16) uint16 {
+func memread(a, l int) int {
 	if a < 0 {
 		if l == 2 {
 			return R[-(a + 1)]
@@ -548,12 +533,12 @@ func memread(a int, l uint16) uint16 {
 		}
 	}
 	if l == 2 {
-		return read16(uint16(a))
+		return read16(a)
 	}
-	return read8(uint16(a))
+	return read8(a)
 }
 
-func memwrite(a int, l, v uint16) {
+func memwrite(a, l, v int) {
 	if a < 0 {
 		if l == 2 {
 			R[-(a + 1)] = v
@@ -562,13 +547,13 @@ func memwrite(a int, l, v uint16) {
 			R[-(a + 1)] |= v
 		}
 	} else if l == 2 {
-		write16(uint16(a), v)
+		write16(a, v)
 	} else {
-		write8(uint16(a), v)
+		write8(a, v)
 	}
 }
 
-func branch(o uint16) {
+func branch(o int) {
 	//printstate()
 	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
@@ -578,12 +563,12 @@ func branch(o uint16) {
 }
 
 func step() {
-	var max, maxp, msb uint16
+	var max, maxp, msb int
 	if waiting {
 		return
 	}
 	curPC = R[7]
-	ia := decode(uint32(R[7]), false, curuser)
+	ia := decode(R[7], false, curuser)
 	R[7] += 2
 	//lastPCs = lastPCs.slice(0, 100)
 	//lastPCs.splice(0, 0, ia)
@@ -603,7 +588,7 @@ func step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		printstate()
+		// printstate()
 		sa := aget(s, l)
 		val := memread(sa, l)
 		da := aget(d, l)
@@ -739,7 +724,7 @@ func step() {
 		}
 		push(R[s&7])
 		R[s&7] = R[7]
-		R[7] = uint16(val)
+		R[7] = val
 		return
 	case 0070000: // MUL
 		printstate()
@@ -752,9 +737,9 @@ func step() {
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		val3 := uint32(val1) * uint32(val2)
-		R[s&7] = uint16((val3 & 0xFFFF0000) >> 16)
-		R[(s&7)|1] = uint16(val3 & 0xFFFF)
+		val3 := val1 * val2
+		R[s&7] = (val3 & 0xFFFF0000) >> 16
+		R[(s&7)|1] = val3 & 0xFFFF
 		PS &= 0xFFF0
 		if val3&0x80000000 != 0 {
 			PS |= FLAGN
@@ -792,11 +777,11 @@ func step() {
 		}
 		return
 	case 0072000: // ASH
-		val1 := R[s&7]
+		val1 := uint(R[s&7])
 		da := aget(d, 2)
-		val2 := memread(da, 2) & 077
+		val2 := uint(memread(da, 2) & 077)
 		PS &= 0xFFF0
-		var val uint16
+		var val uint
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
@@ -814,23 +799,23 @@ func step() {
 				PS |= FLAGC
 			}
 		}
-		R[s&7] = val
+		R[s&7] = int(val)
 		if val == 0 {
 			PS |= FLAGZ
 		}
 		if val&0100000 != 0 {
 			PS |= FLAGN
 		}
-		if xor(val&0100000, val1&0100000) != 0 {
+		if xor(int(val&0100000), int(val1&0100000)) != 0 {
 			PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
-		var val uint32
-		val1 := uint32(R[s&7])<<16 | uint32(R[(s&7)|1])
+		val1 := uint(R[s&7]<<16 | R[(s&7)|1])
 		da := aget(d, 2)
-		val2 := memread(da, 2) & 077
+		val2 := uint(memread(da, 2) & 077)
 		PS &= 0xFFF0
+		var val uint
 		if val2&040 == 040 {
 			val2 = (077 ^ val2) + 1
 			if val1&0x80000000 != 0 {
@@ -848,15 +833,15 @@ func step() {
 				PS |= FLAGC
 			}
 		}
-		R[s&7] = uint16((val >> 16) & 0xFFFF)
-		R[(s&7)|1] = uint16(val & 0xFFFF)
+		R[s&7] = int((val >> 16) & 0xFFFF)
+		R[(s&7)|1] = int(val & 0xFFFF)
 		if val == 0 {
 			PS |= FLAGZ
 		}
 		if val&0x80000000 != 0 {
 			PS |= FLAGN
 		}
-		if xor32(val&0x80000000, val1&0x80000000) != 0 {
+		if xor(int(val&0x80000000), int(val1&0x80000000)) != 0 {
 			PS |= FLAGV
 		}
 		return
@@ -1116,7 +1101,7 @@ func step() {
 		if val < 0 {
 			break
 		}
-		R[7] = uint16(val)
+		R[7] = val
 		return
 	case 0000300: // SWAB
 		da := aget(d, l)
@@ -1137,7 +1122,7 @@ func step() {
 		R[5] = pop()
 		break
 	case 0006500: // MFPI
-		var val uint16
+		var val int
 		da := aget(d, 2)
 		if da == -7 {
 			if curuser == prevuser {
@@ -1151,7 +1136,7 @@ func step() {
 		} else if da < 0 {
 			panic("invalid MFPI instruction")
 		} else {
-			val = physread16(decode(uint32(da), false, prevuser))
+			val = physread16(decode(da, false, prevuser))
 		}
 		push(val)
 		PS &= 0xFFF0
@@ -1177,7 +1162,7 @@ func step() {
 		} else if da < 0 {
 			panic("invalid MTPI instrution")
 		} else {
-			sa := decode(uint32(da), true, prevuser)
+			sa := decode(da, true, prevuser)
 			physwrite16(sa, val)
 		}
 		PS &= 0xFFF0
@@ -1271,7 +1256,7 @@ func step() {
 		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
-		var vec, prev uint16
+		var vec, prev int
 		if (instr & 0177400) == 0104000 {
 			vec = 030
 		} else if (instr & 0177400) == 0104400 {
@@ -1359,7 +1344,7 @@ func reset() {
 		memory[i] = 0
 	}
 	for i := 0; i < len(bootrom); i++ {
-		memory[01000+i] = bootrom[i]
+		memory[01000+i] = int(bootrom[i])
 	}
 	for i := 0; i < 16; i++ {
 		pages[i] = createpage(0, 0)
@@ -1402,10 +1387,4 @@ func run() {
 	//	for {
 	nsteps(4000)
 	//	}
-}
-
-func stop() {
-	//	clearInterval(tim1);
-	//	clearInterval(tim2);
-	//	tim1 = tim2 = undefined;
 }
