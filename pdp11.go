@@ -14,7 +14,6 @@ const pr = true // debug
 var (
 	KSP, USP          int // kernel and user stack pointer
 	curPC             int // address of current instruction
-	lastPCs           []int
 	instr             int             // current instruction
 	memory            [128 * 1024]int // word addressing
 	SR0, SR2          int
@@ -565,8 +564,6 @@ func (k *KB11) step() {
 	curPC = k.R[7]
 	ia := k.decode(k.R[7], false, curuser)
 	k.R[7] += 2
-	//lastPCs = lastPCs.slice(0, 100)
-	//lastPCs.splice(0, 0, ia)
 	instr = k.physread16(ia)
 	d := instr & 077
 	s := (instr & 07700) >> 6
