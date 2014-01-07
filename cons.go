@@ -43,7 +43,7 @@ func specialchar(c int) {
 	}
 }
 
-var input = []int{'u', 'n', 'i', 'x', '\n'}
+var input []int
 
 func getchar() int {
 	if TKS&0x80 == 0x80 {

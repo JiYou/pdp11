@@ -72,6 +72,8 @@ var disasmtable = []D{
 func disasmaddr(m, a int) string {
 	if (m & 7) == 7 {
 		switch m {
+		case 007:
+			return "PC" // guess
 		case 027:
 			a += 2
 			return fmt.Sprintf("$%#o", memory[a>>1])
@@ -108,7 +110,8 @@ func disasmaddr(m, a int) string {
 		a += 2
 		fmt.Sprintf("*%#o (%q)", memory[a>>1], r)
 	}
-	return "XXX" // panic("disasmadr: unknown register")
+	//return "XXX" r
+	panic("disasmadr: unknown register")
 }
 
 func disasm(a int) string {

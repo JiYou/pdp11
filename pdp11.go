@@ -82,6 +82,8 @@ type KB11 struct {
 	KSP, USP int    // kernel and user stack pointer
 	SR0, SR2 int
 	instr    int // current instruction
+
+	buf string // console buffer
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -556,14 +558,12 @@ func (k *KB11) branch(o int) {
 	k.R[7] += o
 }
 
-var buf = []int{'s', 't', 't', 'y', ' ', '-', 'l', 'c', 'a', 's', 'e', '\n'} // , 'w', 'h', 'o',  '\n'}
-
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
-		if len(buf) > 0 {
-			addchar(buf[0])
-			buf = buf[1:]
+		if len(k.buf) > 0 {
+			addchar(int(k.buf[0]))
+			k.buf = k.buf[1:]
 		}
 		return
 	}
@@ -571,6 +571,9 @@ func (k *KB11) step() {
 	ia := k.decode(k.R[7], false, curuser)
 	k.R[7] += 2
 	k.instr = k.physread16(ia)
+	if pr {
+		k.printstate()
+	}
 	instr := k.instr
 	d := instr & 077
 	s := (instr & 07700) >> 6
@@ -1325,7 +1328,7 @@ func (k *KB11) step() {
 	panic(trap{INTINVAL, "invalid instruction"})
 }
 
-func (k *KB11) reset() {
+func (k *KB11) Reset() {
 	for i := 0; i < 7; i++ {
 		k.R[i] = 0
 	}
@@ -1348,6 +1351,8 @@ func (k *KB11) reset() {
 	}
 	k.R[7] = 02002
 	clearterminal()
+	// buffer for bootloader
+	input = []int{'u', 'n', 'i', 'x', '\n'}
 	rkreset()
 	clkcounter = 0
 	waiting = false
