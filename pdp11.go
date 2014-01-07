@@ -9,7 +9,7 @@ const (
 	FLAGC = 1
 )
 
-const pr = true // debug
+const pr = false // debug
 
 var (
 	memory            [128 * 1024]int // word addressing
@@ -109,41 +109,32 @@ func (k *KB11) switchmode(newm bool) {
 }
 
 func (k *KB11) physread16(a int) int {
-	if a&1 == 1 {
+	switch {
+	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
-	}
-	if a < 0760000 {
+	case a < 0760000:
 		return memory[a>>1]
-	}
-	if a == 0777546 {
+	case a == 0777546:
 		return LKS
-	}
-	if a == 0777570 {
+	case a == 0777570:
 		return 0173030
-	}
-	if a == 0777572 {
+	case a == 0777572:
 		return k.SR0
-	}
-	if a == 0777576 {
+	case a == 0777576:
 		return k.SR2
-	}
-	if a == 0777776 {
+	case a == 0777776:
 		return k.PS
-	}
-	if a&0777770 == 0777560 {
+	case a&0777770 == 0777560:
 		return consread16(a)
-	}
-	if a&0777760 == 0777400 {
+	case a&0777760 == 0777400:
 		return rkread16(a)
-	}
-	if a&0777600 == 0772200 || (a&0777600) == 0777600 {
+	case a&0777600 == 0772200 || (a&0777600) == 0777600:
 		return mmuread16(a)
-	}
-	if a == 0776000 {
+	case a == 0776000:
 		panic("lolwut")
+	default:
+		panic(trap{INTBUS, "read from invalid address " + ostr(a, 6)})
 	}
-	panic(trap{INTBUS, "read from invalid address " + ostr(a, 6)})
-	panic("unreachable")
 }
 
 func (k *KB11) physread8(a int) int {
@@ -350,7 +341,7 @@ func (k *KB11) pop() int {
 }
 
 func ostr(z interface{}, n int) string {
-	return fmt.Sprintf("%#o", z)
+	return fmt.Sprintf("%0"+fmt.Sprintf("%d", n)+"o", z)
 }
 
 var writedebug = fmt.Print
@@ -405,7 +396,7 @@ type trap struct {
 }
 
 func (t trap) String() string {
-	return fmt.Sprintf("trap %#d occured: %s", t.num, t.msg)
+	return fmt.Sprintf("trap %06o occured: %s", t.num, t.msg)
 }
 
 func interrupt(vec, pri int) {
@@ -457,12 +448,9 @@ func (k *KB11) handleinterrupt(vec int) {
 func (k *KB11) trapat(vec int, msg string) {
 	var prev int
 	defer func() {
-		trap := recover()
-		switch trap := trap.(type) {
-		case struct {
-			num int
-			msg string
-		}:
+		t := recover()
+		switch t := t.(type) {
+		case trap:
 			writedebug("red stack trap!\n")
 			memory[0] = k.R[7]
 			memory[1] = prev
@@ -470,7 +458,7 @@ func (k *KB11) trapat(vec int, msg string) {
 		case nil:
 			break
 		default:
-			panic(trap)
+			panic(t)
 		}
 		k.R[7] = memory[vec>>1]
 		k.PS = memory[(vec>>1)+1]
