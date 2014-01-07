@@ -5,10 +5,10 @@ import "fmt"
 var rs = [...]string{"R0", "R1", "R2", "R3", "R4", "R5", "SP", "PC"}
 
 type D struct {
-	inst, b uint16
-	msg     string
-	flag    string
-	byte    bool
+	inst, arg uint16
+	msg       string
+	flag      string
+	b         bool
 }
 
 var disasmtable = []D{
@@ -80,11 +80,11 @@ func disasmaddr(m uint16, a uint32) string {
 			return fmt.Sprintf("*%#o", memory[a>>1])
 		case 067:
 			a += 2
-			return "unknown 067"
-			//return "*" + ((a[0] + 2 + memory[a[0]>>1]) & 0xFFFF).toString(8);
+			return fmt.Sprintf("*%#o", (a+2+uint32(memory[a>>1]))&0xFFFF)
 		case 077:
-			// a := [0]+=2;return "**" + ((a[0] + 2 + memory[a[0]>>1]) & 0xFFFF).toString(8);
-			return "unknown 077"
+			return fmt.Sprintf("**%#o", (a+2+uint32(memory[a>>1]))&0xFFFF)
+		default:
+			panic("disasmaddr: unhandled m")
 		}
 	}
 	r := rs[m&7]
@@ -108,7 +108,7 @@ func disasmaddr(m uint16, a uint32) string {
 		a += 2
 		fmt.Sprintf("*%#o (%q)", memory[a>>1], r)
 	}
-	return "disasmadr: unknown"
+	panic("disasmadr: unknown register")
 }
 
 func disasm(a uint32) string {
@@ -117,7 +117,7 @@ func disasm(a uint32) string {
 	var l D
 	for i := 0; i < len(disasmtable); i++ {
 		l = disasmtable[i]
-		if (ins & l.inst) == l.b {
+		if (ins & l.inst) == l.arg {
 			msg = l.msg
 			break
 		}
@@ -125,19 +125,18 @@ func disasm(a uint32) string {
 	if msg == "???" {
 		return msg
 	}
-	if l.byte && ins&0100000 == 0100000 {
+	if l.b && (ins&0100000 == 0100000) {
 		msg += "B"
 	}
 	s := (ins & 07700) >> 6
 	d := ins & 077
-	o := ins & 0377
-	aa := a
+	o := byte(ins & 0377)
 	switch l.flag {
 	case "SD":
-		msg += " " + disasmaddr(s, aa) + ","
+		msg += " " + disasmaddr(s, a) + ","
 		fallthrough
 	case "D":
-		msg += " " + disasmaddr(d, aa)
+		msg += " " + disasmaddr(d, a)
 	case "RO":
 		msg += " " + rs[(ins&0700)>>6] + ","
 		o &= 077
@@ -149,7 +148,7 @@ func disasm(a uint32) string {
 			msg += fmt.Sprintf(" +%#o", (2 * o))
 		}
 	case "RD":
-		msg += " " + rs[(ins&0700)>>6] + ", " + disasmaddr(d, aa)
+		msg += " " + rs[(ins&0700)>>6] + ", " + disasmaddr(d, a)
 	case "R":
 		msg += " " + rs[ins&7]
 	case "R3":

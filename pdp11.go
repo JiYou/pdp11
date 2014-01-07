@@ -602,6 +602,7 @@ func step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
+		printstate()
 		sa := aget(s, l)
 		val := memread(sa, l)
 		da := aget(d, l)
