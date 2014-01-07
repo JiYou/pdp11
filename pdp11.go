@@ -82,7 +82,11 @@ func xor(x, y int) int {
 	return z
 }
 
-func switchmode(newm bool) {
+type KB11 struct {
+
+}
+
+func (k *KB11) switchmode(newm bool) {
 	prevuser = curuser
 	curuser = newm
 	if prevuser {
@@ -104,7 +108,7 @@ func switchmode(newm bool) {
 	}
 }
 
-func physread16(a int) int {
+func (k *KB11) physread16(a int) int {
 	if a&1 == 1 {
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	}
@@ -142,15 +146,15 @@ func physread16(a int) int {
 	panic("unreachable")
 }
 
-func physread8(a int) int {
-	val := physread16(a & ^1)
+func (k *KB11) physread8(a int) int {
+	val := k.physread16(a & ^1)
 	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
 }
 
-func physwrite8(a, v int) {
+func (k *KB11) physwrite8(a, v int) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
@@ -161,14 +165,14 @@ func physwrite8(a, v int) {
 		}
 	} else {
 		if a&1 == 1 {
-			physwrite16(a&^1, (physread16(a)&0xFF)|(v&0xFF)<<8)
+			k.physwrite16(a&^1, (k.physread16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			physwrite16(a&^1, (physread16(a)&0xFF00)|(v&0xFF))
+			k.physwrite16(a&^1, (k.physread16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }
 
-func physwrite16(a, v int) {
+func (k *KB11) physwrite16(a, v int) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}
@@ -177,10 +181,10 @@ func physwrite16(a, v int) {
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:
-			switchmode(false)
+			k.switchmode(false)
 			break
 		case 3:
-			switchmode(true)
+			k.switchmode(true)
 			break
 		default:
 			panic("invalid mode")
@@ -211,7 +215,7 @@ func physwrite16(a, v int) {
 	}
 }
 
-func decode(a int, w, m bool) int {
+func (k *KB11) decode(a int, w, m bool) int {
 	var p page
 	var user, block, disp int
 	if !(SR0&1 == 1) {
@@ -312,35 +316,35 @@ func mmuwrite16(a, v int) {
 	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 }
 
-func read8(a int) int {
-	return physread8(decode(a, false, curuser))
+func (k *KB11) read8(a int) int {
+	return k.physread8(k.decode(a, false, curuser))
 }
 
-func read16(a int) int {
-	return physread16(decode(a, false, curuser))
+func (k *KB11) read16(a int) int {
+	return k.physread16(k.decode(a, false, curuser))
 }
 
-func write8(a, v int) {
-	physwrite8(decode(a, true, curuser), v)
+func (k *KB11) write8(a, v int) {
+	k.physwrite8(k.decode(a, true, curuser), v)
 }
 
-func write16(a, v int) {
-	physwrite16(decode(a, true, curuser), v)
+func (k *KB11) write16(a, v int) {
+	k.physwrite16(k.decode(a, true, curuser), v)
 }
 
-func fetch16() int {
-	val := read16(R[7])
+func (k *KB11) fetch16() int {
+	val := k.read16(R[7])
 	R[7] += 2
 	return val
 }
 
-func push(v int) {
+func (k *KB11) push(v int) {
 	R[6] -= 2
-	write16(R[6], v)
+	k.write16(R[6], v)
 }
 
-func pop() int {
-	val := read16(R[6])
+func (k *KB11) pop() int {
+	val := k.read16(R[6])
 	R[6] += 2
 	return val
 }
@@ -351,7 +355,7 @@ func ostr(z interface{}, n int) string {
 
 var writedebug = fmt.Print
 
-func printstate() {
+func (k *KB11) printstate() {
 	writedebug("R0 " + ostr(R[0], 6) + " " +
 		"R1 " + ostr(R[1], 6) + " " +
 		"R2 " + ostr(R[2], 6) + " " +
@@ -391,7 +395,7 @@ func printstate() {
 		writedebug(" ")
 	}
 	writedebug("]  instr " + ostr(curPC, 6) + ": " + ostr(instr, 6) + "   ")
-	writedebug(disasm(decode(curPC, false, curuser)))
+	writedebug(disasm(k.decode(curPC, false, curuser)))
 	writedebug("\n")
 }
 
@@ -423,7 +427,7 @@ func interrupt(vec, pri int) {
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
 }
 
-func handleinterrupt(vec int) {
+func (k *KB11) handleinterrupt(vec int) {
 	defer func() {
 		trap := recover()
 		switch trap := trap.(type) {
@@ -431,7 +435,7 @@ func handleinterrupt(vec int) {
 			num int
 			msg string
 		}:
-			trapat(trap.num, trap.msg)
+			k.trapat(trap.num, trap.msg)
 		case nil:
 			break
 		default:
@@ -445,12 +449,12 @@ func handleinterrupt(vec int) {
 		waiting = false
 	}()
 	prev := PS
-	switchmode(false)
-	push(prev)
-	push(R[7])
+	k.switchmode(false)
+	k.push(prev)
+	k.push(R[7])
 }
 
-func trapat(vec int, msg string) {
+func (k *KB11) trapat(vec int, msg string) {
 	var prev int
 	defer func() {
 		trap := recover()
@@ -479,15 +483,15 @@ func trapat(vec int, msg string) {
 		panic("Thou darst calling trapat() with an odd vector number?")
 	}
 	writedebug("trap " + ostr(vec, 6) + " occured: " + msg + "\n")
-	printstate()
+	k.printstate()
 
 	prev = PS
-	switchmode(false)
-	push(prev)
-	push(R[7])
+	k.switchmode(false)
+	k.push(prev)
+	k.push(R[7])
 }
 
-func aget(v, l int) int {
+func (k *KB11) aget(v, l int) int {
 	if (v&7) >= 6 || (v&010 == 010) {
 		l = 2
 	}
@@ -506,17 +510,17 @@ func aget(v, l int) int {
 		R[v&7] -= l
 		addr = R[v&7]
 	case 060:
-		addr = fetch16()
+		addr = k.fetch16()
 		addr += R[v&7]
 	}
 	addr &= 0xFFFF
 	if v&010 == 010 {
-		addr = read16(addr)
+		addr = k.read16(addr)
 	}
 	return addr
 }
 
-func memread(a, l int) int {
+func (k *KB11) memread(a, l int) int {
 	if a < 0 {
 		if l == 2 {
 			return R[-(a + 1)]
@@ -525,12 +529,12 @@ func memread(a, l int) int {
 		}
 	}
 	if l == 2 {
-		return read16(a)
+		return k.read16(a)
 	}
-	return read8(a)
+	return k.read8(a)
 }
 
-func memwrite(a, l, v int) {
+func (k *KB11) memwrite(a, l, v int) {
 	if a < 0 {
 		if l == 2 {
 			R[-(a + 1)] = v
@@ -539,13 +543,13 @@ func memwrite(a, l, v int) {
 			R[-(a + 1)] |= v
 		}
 	} else if l == 2 {
-		write16(a, v)
+		k.write16(a, v)
 	} else {
-		write8(a, v)
+		k.write8(a, v)
 	}
 }
 
-func branch(o int) {
+func (k *KB11) branch(o int) {
 	//printstate()
 	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
@@ -554,17 +558,17 @@ func branch(o int) {
 	R[7] += o
 }
 
-func step() {
+func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
 		return
 	}
 	curPC = R[7]
-	ia := decode(R[7], false, curuser)
+	ia := k.decode(R[7], false, curuser)
 	R[7] += 2
 	//lastPCs = lastPCs.slice(0, 100)
 	//lastPCs.splice(0, 0, ia)
-	instr = physread16(ia)
+	instr = k.physread16(ia)
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
@@ -581,9 +585,9 @@ func step() {
 	switch instr & 0070000 {
 	case 0010000: // MOV
 		//printstate()
-		sa := aget(s, l)
-		val := memread(sa, l)
-		da := aget(d, l)
+		sa := k.aget(s, l)
+		val := k.memread(sa, l)
+		da := k.aget(d, l)
 		PS &= 0xFFF1
 		if val&msb == msb {
 			PS |= FLAGN
@@ -597,13 +601,13 @@ func step() {
 				val |= 0xFF00
 			}
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0020000: // CMP
-		sa := aget(s, l)
-		val1 := memread(sa, l)
-		da := aget(d, l)
-		val2 := memread(da, l)
+		sa := k.aget(s, l)
+		val1 := k.memread(sa, l)
+		da := k.aget(d, l)
+		val2 := k.memread(da, l)
 		val := (val1 - val2) & max
 		PS &= 0xFFF0
 		if val == 0 {
@@ -620,10 +624,10 @@ func step() {
 		}
 		return
 	case 0030000: // BIT
-		sa := aget(s, l)
-		val1 := memread(sa, l)
-		da := aget(d, l)
-		val2 := memread(da, l)
+		sa := k.aget(s, l)
+		val1 := k.memread(sa, l)
+		da := k.aget(d, l)
+		val2 := k.memread(da, l)
 		val := val1 & val2
 		PS &= 0xFFF1
 		if val == 0 {
@@ -634,10 +638,10 @@ func step() {
 		}
 		return
 	case 0040000: // BIC
-		sa := aget(s, l)
-		val1 := memread(sa, l)
-		da := aget(d, l)
-		val2 := memread(da, l)
+		sa := k.aget(s, l)
+		val1 :=k.memread(sa, l)
+		da := k.aget(d, l)
+		val2 := k.memread(da, l)
 		val := (max ^ val1) & val2
 		PS &= 0xFFF1
 		if val == 0 {
@@ -646,13 +650,13 @@ func step() {
 		if val&msb != 0 {
 			PS |= FLAGN
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0050000: // BIS
-		sa := aget(s, l)
-		val1 := memread(sa, l)
-		da := aget(d, l)
-		val2 := memread(da, l)
+		sa := k.aget(s, l)
+		val1 := k.memread(sa, l)
+		da := k.aget(d, l)
+		val2 := k.memread(da, l)
 		val := val1 | val2
 		PS &= 0xFFF1
 		if val == 0 {
@@ -661,15 +665,15 @@ func step() {
 		if val&msb != 0 {
 			PS |= FLAGN
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	}
 	switch instr & 0170000 {
 	case 0060000: // ADD
-		sa := aget(s, 2)
-		val1 := memread(sa, 2)
-		da := aget(d, 2)
-		val2 := memread(da, 2)
+		sa := k.aget(s, 2)
+		val1 := k.memread(sa, 2)
+		da := k.aget(d, 2)
+		val2 := k.memread(da, 2)
 		val := (val1 + val2) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
@@ -684,13 +688,13 @@ func step() {
 		if int(val1)+int(val2) >= 0xFFFF {
 			PS |= FLAGC
 		}
-		memwrite(da, 2, val)
+		k.memwrite(da, 2, val)
 		return
 	case 0160000: // SUB
-		sa := aget(s, 2)
-		val1 := memread(sa, 2)
-		da := aget(d, 2)
-		val2 := memread(da, 2)
+		sa := k.aget(s, 2)
+		val1 := k.memread(sa, 2)
+		da := k.aget(d, 2)
+		val2 := k.memread(da, 2)
 		val := (val2 - val1) & 0xFFFF
 		PS &= 0xFFF0
 		if val == 0 {
@@ -705,16 +709,16 @@ func step() {
 		if val1 > val2 {
 			PS |= FLAGC
 		}
-		memwrite(da, 2, val)
+		k.memwrite(da, 2, val)
 		return
 	}
 	switch instr & 0177000 {
 	case 0004000: // JSR
-		val := aget(d, l)
+		val := k.aget(d, l)
 		if val < 0 {
 			break
 		}
-		push(R[s&7])
+		k.push(R[s&7])
 		R[s&7] = R[7]
 		R[7] = val
 		return
@@ -723,8 +727,8 @@ func step() {
 		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
-		da := aget(d, l)
-		val2 := memread(da, 2)
+		da := k.aget(d, l)
+		val2 := k.memread(da, 2)
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
@@ -744,8 +748,8 @@ func step() {
 		return
 	case 0071000: // DIV
 		val1 := (R[s&7] << 16) | R[(s&7)|1]
-		da := aget(d, l)
-		val2 := memread(da, 2)
+		da := k.aget(d, l)
+		val2 := k.memread(da, 2)
 		PS &= 0xFFF0
 		if val2 == 0 {
 			PS |= FLAGC
@@ -769,8 +773,8 @@ func step() {
 		return
 	case 0072000: // ASH
 		val1 := uint(R[s&7])
-		da := aget(d, 2)
-		val2 := uint(memread(da, 2) & 077)
+		da := k.aget(d, 2)
+		val2 := uint(k.memread(da, 2) & 077)
 		PS &= 0xFFF0
 		var val uint
 		if val2&040 == 040 {
@@ -803,8 +807,8 @@ func step() {
 		return
 	case 0073000: // ASHC
 		val1 := uint(R[s&7]<<16 | R[(s&7)|1])
-		da := aget(d, 2)
-		val2 := uint(memread(da, 2) & 077)
+		da := k.aget(d, 2)
+		val2 := uint(k.memread(da, 2) & 077)
 		PS &= 0xFFF0
 		var val uint
 		if val2&040 == 040 {
@@ -838,8 +842,8 @@ func step() {
 		return
 	case 0074000: // XOR
 		val1 := R[s&7]
-		da := aget(d, 2)
-		val2 := memread(da, 2)
+		da := k.aget(d, 2)
+		val2 := k.memread(da, 2)
 		val := val1 ^ val2
 		PS &= 0xFFF1
 		if val == 0 {
@@ -848,7 +852,7 @@ func step() {
 		if val&0x8000 == 0x8000 {
 			PS |= FLAGZ
 		}
-		memwrite(da, 2, val)
+		k.memwrite(da, 2, val)
 		return
 	case 0077000: // SOB
 		R[s&7]--
@@ -863,12 +867,12 @@ func step() {
 	case 0005000: // CLR
 		PS &= 0xFFF0
 		PS |= FLAGZ
-		da := aget(d, l)
-		memwrite(da, l, 0)
+		da := k.aget(d, l)
+		k.memwrite(da, l, 0)
 		return
 	case 0005100: // COM
-		da := aget(d, l)
-		val := memread(da, l) ^ max
+		da := k.aget(d, l)
+		val := k.memread(da, l) ^ max
 		PS &= 0xFFF0
 		PS |= FLAGC
 		if val&msb != 0 {
@@ -877,11 +881,11 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0005200: // INC
-		da := aget(d, l)
-		val := (memread(da, l) + 1) & max
+		da := k.aget(d, l)
+		val := (k.memread(da, l) + 1) & max
 		PS &= 0xFFF1
 		if val&msb != 0 {
 			PS |= FLAGN | FLAGV
@@ -889,11 +893,11 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0005300: // DEC
-		da := aget(d, l)
-		val := (memread(da, l) - 1) & max
+		da := k.aget(d, l)
+		val := (k.memread(da, l) - 1) & max
 		PS &= 0xFFF1
 		if val&msb != 0 {
 			PS |= FLAGN
@@ -904,11 +908,11 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0005400: // NEG
-		da := aget(d, l)
-		val := (-memread(da, l)) & max
+		da := k.aget(d, l)
+		val := (-k.memread(da, l)) & max
 		PS &= 0xFFF0
 		if val&msb != 0 {
 			PS |= FLAGN
@@ -921,11 +925,11 @@ func step() {
 		if val == 0x8000 {
 			PS |= FLAGV
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0005500: // ADC
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
 			if (val+1)&msb != 0 {
@@ -940,7 +944,7 @@ func step() {
 			if val == 0177777 {
 				PS |= FLAGC
 			}
-			memwrite(da, l, (val+1)&max)
+			k.memwrite(da, l, (val+1)&max)
 		} else {
 			PS &= 0xFFF0
 			if val&msb != 0 {
@@ -952,8 +956,8 @@ func step() {
 		}
 		return
 	case 0005600: // SBC
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		if PS&FLAGC == FLAGC {
 			PS &= 0xFFF0
 			if (val-1)&msb != 0 {
@@ -968,7 +972,7 @@ func step() {
 			if val == 0100000 {
 				PS |= FLAGV
 			}
-			memwrite(da, l, (val-1)&max)
+			k.memwrite(da, l, (val-1)&max)
 		} else {
 			PS &= 0xFFF0
 			if val&msb != 0 {
@@ -984,8 +988,8 @@ func step() {
 		}
 		return
 	case 0005700: // TST
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		PS &= 0xFFF0
 		if val&msb != 0 {
 			PS |= FLAGN
@@ -995,8 +999,8 @@ func step() {
 		}
 		return
 	case 0006000: // ROR
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		if PS&FLAGC == FLAGC {
 			val |= max + 1
 		}
@@ -1014,11 +1018,11 @@ func step() {
 			PS |= FLAGV
 		}
 		val >>= 1
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0006100: // ROL
-		da := aget(d, l)
-		val := memread(da, l) << 1
+		da := k.aget(d, l)
+		val := k.memread(da, l) << 1
 		if PS&FLAGC == FLAGC {
 			val |= 1
 		}
@@ -1036,11 +1040,11 @@ func step() {
 			PS |= FLAGV
 		}
 		val &= max
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0006200: // ASR
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		PS &= 0xFFF0
 		if val&1 != 0 {
 			PS |= FLAGC
@@ -1055,11 +1059,11 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0006300: // ASL
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		PS &= 0xFFF0
 		if val&msb != 0 {
 			PS |= FLAGC
@@ -1074,29 +1078,29 @@ func step() {
 		if val == 0 {
 			PS |= FLAGZ
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0006700: // SXT
-		da := aget(d, l)
+		da := k.aget(d, l)
 		if PS&FLAGN == FLAGN {
-			memwrite(da, l, max)
+			k.memwrite(da, l, max)
 		} else {
 			PS |= FLAGZ
-			memwrite(da, l, 0)
+			k.memwrite(da, l, 0)
 		}
 		return
 	}
 	switch instr & 0177700 {
 	case 0000100: // JMP
-		val := aget(d, 2)
+		val := k.aget(d, 2)
 		if val < 0 {
 			break
 		}
 		R[7] = val
 		return
 	case 0000300: // SWAB
-		da := aget(d, l)
-		val := memread(da, l)
+		da := k.aget(d, l)
+		val := k.memread(da, l)
 		val = ((val >> 8) | (val << 8)) & 0xFFFF
 		PS &= 0xFFF0
 		if (val & 0xFF) == 0 {
@@ -1105,16 +1109,16 @@ func step() {
 		if val&0x80 == 0x80 {
 			PS |= FLAGN
 		}
-		memwrite(da, l, val)
+		k.memwrite(da, l, val)
 		return
 	case 0006400: // MARK
 		R[6] = R[7] + (instr&077)<<1
 		R[7] = R[5]
-		R[5] = pop()
+		R[5] = k.pop()
 		break
 	case 0006500: // MFPI
 		var val int
-		da := aget(d, 2)
+		da := k.aget(d, 2)
 		if da == -7 {
 			if curuser == prevuser {
 				val = R[6]
@@ -1127,9 +1131,9 @@ func step() {
 		} else if da < 0 {
 			panic("invalid MFPI instruction")
 		} else {
-			val = physread16(decode(da, false, prevuser))
+			val = k.physread16(k.decode(da, false, prevuser))
 		}
-		push(val)
+		k.push(val)
 		PS &= 0xFFF0
 		PS |= FLAGC
 		if val == 0 {
@@ -1140,8 +1144,8 @@ func step() {
 		}
 		return
 	case 0006600: // MTPI
-		da := aget(d, 2)
-		val := pop()
+		da := k.aget(d, 2)
+		val := k.pop()
 		if da == -7 {
 			if curuser == prevuser {
 				R[6] = val
@@ -1153,8 +1157,8 @@ func step() {
 		} else if da < 0 {
 			panic("invalid MTPI instrution")
 		} else {
-			sa := decode(da, true, prevuser)
-			physwrite16(sa, val)
+			sa := k.decode(da, true, prevuser)
+			k.physwrite16(sa, val)
 		}
 		PS &= 0xFFF0
 		PS |= FLAGC
@@ -1168,81 +1172,81 @@ func step() {
 	}
 	if (instr & 0177770) == 0000200 { // RTS
 		R[7] = R[d&7]
-		R[d&7] = pop()
+		R[d&7] = k.pop()
 		return
 	}
 	switch instr & 0177400 {
 	case 0000400:
-		branch(o)
+		k.branch(o)
 		return
 	case 0001000:
 		if !(PS&FLAGZ == FLAGZ) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0001400:
 		if PS&FLAGZ == FLAGZ {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0002000:
 		if !(xor(PS&FLAGN, PS&FLAGV) != 0) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0002400:
 		if xor(PS&FLAGN, PS&FLAGV) != 0 {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0003000:
 		if !(xor(PS&FLAGN, PS&FLAGV) != 0) && !(PS&FLAGZ == FLAGZ) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0003400:
 		if xor(PS&FLAGN, PS&FLAGV) != 0 || (PS&FLAGZ == FLAGZ) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0100000:
 		if PS&FLAGN == 0 {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0100400:
 		if PS&FLAGN == FLAGN {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0101000:
 		if !(PS&FLAGC == FLAGC) && !(PS&FLAGZ == FLAGZ) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0101400:
 		if (PS&FLAGC == FLAGC) || (PS&FLAGZ == FLAGZ) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0102000:
 		if !(PS&FLAGV == FLAGV) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0102400:
 		if PS&FLAGV == FLAGV {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0103000:
 		if !(PS&FLAGC == FLAGC) {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	case 0103400:
 		if PS&FLAGC == FLAGC {
-			branch(o)
+			k.branch(o)
 		}
 		return
 	}
@@ -1258,9 +1262,9 @@ func step() {
 			vec = 020
 		}
 		prev = PS
-		switchmode(false)
-		push(prev)
-		push(R[7])
+		k.switchmode(false)
+		k.push(prev)
+		k.push(R[7])
 		R[7] = memory[vec>>1]
 		PS = memory[(vec>>1)+1]
 		if prevuser {
@@ -1282,7 +1286,7 @@ func step() {
 			break
 		}
 		writedebug("HALT\n")
-		printstate()
+		k.printstate()
 		panic("HALT")
 		return
 	case 0000001: // WAIT
@@ -1295,13 +1299,13 @@ func step() {
 		return
 	case 0000002: // RTI
 	case 0000006: // RTT
-		R[7] = pop()
-		val := pop()
+		R[7] = k.pop()
+		val := k.pop()
 		if curuser {
 			val &= 047
 			val |= PS & 0177730
 		}
-		physwrite16(0777776, val)
+		k.physwrite16(0777776, val)
 		return
 	case 0000005: // RESET
 		if curuser {
@@ -1317,7 +1321,7 @@ func step() {
 	panic(trap{INTINVAL, "invalid instruction"})
 }
 
-func reset() {
+func (k *KB11) reset() {
 	for i := 0; i < 7; i++ {
 		R[i] = 0
 	}
@@ -1346,12 +1350,12 @@ func reset() {
 	waiting = false
 }
 
-func onestep() {
+func (k *KB11) onestep() {
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
 		case trap:
-			trapat(t.num, t.msg)
+			k.trapat(t.num, t.msg)
 		case nil:
 			// ignore
 		default:
@@ -1359,9 +1363,9 @@ func onestep() {
 		}
 	}()
 
-	step()
+	k.step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((PS>>5)&7) {
-		handleinterrupt(interrupts[0].vec)
+		k.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
 	}
 	clkcounter++

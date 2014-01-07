@@ -20,8 +20,9 @@ func TestXOR(t *testing.T) {
 
 func TestPDP(t *testing.T) {
 	rkinit()
-	reset()
+	var kb KB11
+	kb.reset()
 	for {
-		onestep()
+		kb.onestep()
 	}
 }
