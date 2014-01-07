@@ -12,9 +12,7 @@ const (
 const pr = true // debug
 
 var (
-	KSP, USP          int             // kernel and user stack pointer
 	memory            [128 * 1024]int // word addressing
-	SR0, SR2          int
 	curuser, prevuser bool
 	LKS, clkcounter   int
 	waiting           = false
@@ -81,6 +79,8 @@ type KB11 struct {
 	R     [8]int // registers
 	PS    int    // processor status
 	PC    int    // address of current instruction
+	KSP, USP          int             // kernel and user stack pointer
+	SR0, SR2          int
 	instr int    // current instruction
 }
 
@@ -88,14 +88,14 @@ func (k *KB11) switchmode(newm bool) {
 	prevuser = curuser
 	curuser = newm
 	if prevuser {
-		USP = k.R[6]
+		k.USP = k.R[6]
 	} else {
-		KSP = k.R[6]
+		k.KSP = k.R[6]
 	}
 	if curuser {
-		k.R[6] = USP
+		k.R[6] = k.USP
 	} else {
-		k.R[6] = KSP
+		k.R[6] = k.KSP
 	}
 	k.PS &= 0007777
 	if curuser {
@@ -120,10 +120,10 @@ func (k *KB11) physread16(a int) int {
 		return 0173030
 	}
 	if a == 0777572 {
-		return SR0
+		return k.SR0
 	}
 	if a == 0777576 {
-		return SR2
+		return k.SR2
 	}
 	if a == 0777776 {
 		return k.PS
@@ -201,7 +201,7 @@ func (k *KB11) physwrite16(a, v int) {
 	} else if a == 0777546 {
 		LKS = v
 	} else if a == 0777572 {
-		SR0 = v
+		k.SR0 = v
 	} else if (a & 0777770) == 0777560 {
 		conswrite16(a, v)
 	} else if (a & 0777700) == 0777400 {
@@ -216,7 +216,7 @@ func (k *KB11) physwrite16(a, v int) {
 func (k *KB11) decode(a int, w, m bool) int {
 	var p page
 	var user, block, disp int
-	if !(SR0&1 == 1) {
+	if !(k.SR0&1 == 1) {
 		if a >= 0170000 {
 			a += 0600000
 		}
@@ -229,33 +229,33 @@ func (k *KB11) decode(a int, w, m bool) int {
 	}
 	p = pages[(a>>13)+user]
 	if w && !p.write {
-		SR0 = (1 << 13) | 1
-		SR0 |= (a >> 12) & ^(1)
+		k.SR0 = (1 << 13) | 1
+		k.SR0 |= (a >> 12) & ^(1)
 		if user != 0 {
-			SR0 |= (1 << 5) | (1 << 6)
+			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = k.PC
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
 	}
 	if !p.read {
-		SR0 = (1 << 15) | 1
-		SR0 |= (a >> 12) & ^(1)
+		k.SR0 = (1 << 15) | 1
+		k.SR0 |= (a >> 12) & ^(1)
 		if user != 0 {
-			SR0 |= (1 << 5) | (1 << 6)
+			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = k.PC
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block = a >> 6 & 0177
 	disp = a & 077
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
-		SR0 = (1 << 14) | 1
-		SR0 |= (a >> 12) & ^(1)
+		k.SR0 = (1 << 14) | 1
+		k.SR0 |= (a >> 12) & ^(1)
 		if user > 0 {
-			SR0 |= (1 << 5) | (1 << 6)
+			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		SR2 = k.PC
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
 	}
 	if w {
@@ -556,9 +556,15 @@ func (k *KB11) branch(o int) {
 	k.R[7] += o
 }
 
+var buf =  []int{'l', 's', '\n'}
+
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
+                if len(buf) > 0 {
+                        addchar(buf[0])
+                        buf = buf[1:]
+		}
 		return
 	}
 	k.PC = k.R[7]
@@ -1120,11 +1126,11 @@ func (k *KB11) step() {
 			if curuser == prevuser {
 				val = k.R[6]
 			} else if prevuser {
-				val = USP
+				val = k.USP
 			} else {
-				val = KSP
+				val = k.KSP
 			}
-			// val = (curuser == prevuser) ? R[6] : (prevuser ? USP : KSP);
+			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 		} else if da < 0 {
 			panic("invalid MFPI instruction")
 		} else {
@@ -1147,9 +1153,9 @@ func (k *KB11) step() {
 			if curuser == prevuser {
 				k.R[6] = val
 			} else if prevuser {
-				USP = val
+				k.USP = val
 			} else {
-				KSP = val
+				k.KSP = val
 			}
 		} else if da < 0 {
 			panic("invalid MTPI instrution")
@@ -1295,6 +1301,7 @@ func (k *KB11) step() {
 		waiting = true
 		return
 	case 0000002: // RTI
+		fallthrough
 	case 0000006: // RTT
 		k.R[7] = k.pop()
 		val := k.pop()
@@ -1324,11 +1331,11 @@ func (k *KB11) reset() {
 	}
 	k.PS = 0
 	k.PC = 0
-	KSP = 0
-	USP = 0
+	k.KSP = 0
+	k.USP = 0
 	curuser = false
 	prevuser = false
-	SR0 = 0
+	k.SR0 = 0
 	LKS = 1 << 7
 	for i := 0; i < len(memory); i++ {
 		memory[i] = 0
