@@ -72,8 +72,6 @@ var disasmtable = []D{
 func disasmaddr(m, a int) string {
 	if (m & 7) == 7 {
 		switch m {
-		case 007:
-			return "PC" // guess
 		case 027:
 			a += 2
 			return fmt.Sprintf("$%06o", memory[a>>1])
@@ -85,8 +83,6 @@ func disasmaddr(m, a int) string {
 			return fmt.Sprintf("*%06o", (a+2+memory[a>>1])&0xFFFF)
 		case 077:
 			return fmt.Sprintf("**%06o", (a+2+memory[a>>1])&0xFFFF)
-		default:
-			panic("disasmaddr: unhandled m")
 		}
 	}
 	r := rs[m&7]
