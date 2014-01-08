@@ -84,8 +84,6 @@ type KB11 struct {
 
 	Input    chan uint8
 	unibus   *Unibus
-
-	rk *RK05 // drive 0
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -1251,7 +1249,7 @@ func (k *KB11) Reset() {
 	waiting = false
 }
 
-func (k *KB11) Step() { k.onestep(); k.rk.Step() }
+func (k *KB11) Step() { k.onestep(); k.unibus.rk.Step() }
 
 func (k *KB11) onestep() {
 	defer func() {
@@ -1288,7 +1286,6 @@ func New() *KB11 {
 	cpu.unibus = &unibus
 	unibus.cpu = &cpu
 	unibus.rk = &rk
-	cpu.rk = &rk
 	rk.rkinit()
 	cpu.Reset()
 	return &cpu
