@@ -79,11 +79,13 @@ type KB11 struct {
 	PS       int    // processor status
 	PC       int    // address of current instruction
 	KSP, USP int    // kernel and user stack pointer
+	SR0, SR2 int
 	instr    int    // current instruction
 
 	Input    chan uint8
 	unibus   *Unibus
-	SR0, SR2 int
+
+	rk *RK05 // drive 0
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -1249,7 +1251,7 @@ func (k *KB11) Reset() {
 	waiting = false
 }
 
-func (k *KB11) Step() { k.onestep() }
+func (k *KB11) Step() { k.onestep(); k.rk.Step() }
 
 func (k *KB11) onestep() {
 	defer func() {
@@ -1286,6 +1288,7 @@ func New() *KB11 {
 	cpu.unibus = &unibus
 	unibus.cpu = &cpu
 	unibus.rk = &rk
+	cpu.rk = &rk
 	rk.rkinit()
 	cpu.Reset()
 	return &cpu
