@@ -14,7 +14,10 @@ const (
 	RKNXS = (1 << 5)
 )
 
-func rkread16(a int) int {
+type RK05 struct {
+}
+
+func (r *RK05) rkread16(a int) int {
 	switch a {
 	case 0777400:
 		return RKDS
@@ -33,19 +36,19 @@ func rkread16(a int) int {
 	}
 }
 
-func rknotready() {
+func (r *RK05) rknotready() {
 	RKDS &= ^(1 << 6)
 	RKCS &= ^(1 << 7)
 }
 
-func rkready() {
+func (r *RK05) rkready() {
 	RKDS |= 1 << 6
 	RKCS |= 1 << 7
 }
 
-func rkerror(code int) {
+func (r *RK05) rkerror(code int) {
 	var msg string
-	rkready()
+	r.rkready()
 	RKER |= code
 	RKCS |= (1 << 15) | (1 << 14)
 	switch code {
@@ -65,16 +68,16 @@ func rkerror(code int) {
 	panic(msg)
 }
 
-func rkrwsec(t bool) {
+func (r *RK05) rkrwsec(t bool) {
 	// fmt.Println("rkrwsec: RKBA:", RKBA, "RKWC:", RKWC, "cylinder:", cylinder, "sector:", sector)
 	if drive != 0 {
-		rkerror(RKNXD)
+		r.rkerror(RKNXD)
 	}
 	if cylinder > 0312 {
-		rkerror(RKNXC)
+		r.rkerror(RKNXC)
 	}
 	if sector > 013 {
-		rkerror(RKNXS)
+		r.rkerror(RKNXS)
 	}
 	pos := (cylinder*24 + surface*12 + sector) * 512
 	for i := 0; i < 256 && RKWC != 0; i++ {
@@ -97,39 +100,39 @@ func rkrwsec(t bool) {
 			surface = 0
 			cylinder++
 			if cylinder > 0312 {
-				rkerror(RKOVR)
+				r.rkerror(RKOVR)
 			}
 		}
 	}
 	if RKWC != 0 {
-		rkrwsec(t)
+		r.rkrwsec(t)
 	} else {
-		rkready()
+		r.rkready()
 		if RKCS&(1<<6) != 0 {
 			interrupt(INTRK, 5)
 		}
 	}
 }
 
-func rkgo() {
+func (r *RK05) rkgo() {
 	switch (RKCS & 017) >> 1 {
 	case 0:
-		rkreset()
+		r.rkreset()
 		break
 	case 1:
-		rknotready()
-		rkrwsec(true)
+		r.rknotready()
+		r.rkrwsec(true)
 		break
 	case 2:
-		rknotready()
-		rkrwsec(false)
+		r.rknotready()
+		r.rkrwsec(false)
 		break
 	default:
 		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((RKCS & 017) >> 1)))
 	}
 }
 
-func rkwrite16(a, v int) {
+func (r *RK05) rkwrite16(a, v int) {
 	switch a {
 	case 0777400:
 		break
@@ -142,7 +145,7 @@ func rkwrite16(a, v int) {
 		RKCS &= ^BITS
 		RKCS |= v & ^1 // don't set GO bit
 		if v&1 == 1 {
-			rkgo()
+			r.rkgo()
 		}
 		break
 	case 0777406:
@@ -162,7 +165,7 @@ func rkwrite16(a, v int) {
 	}
 }
 
-func rkreset() {
+func (r *RK05) rkreset() {
 	RKDS = (1 << 11) | (1 << 7) | (1 << 6)
 	RKER = 0
 	RKCS = 1 << 7
@@ -173,7 +176,7 @@ func rkreset() {
 
 var rkdisk []byte
 
-func rkinit() {
+func (r *RK05) rkinit() {
 	var err error
 	rkdisk, err = ioutil.ReadFile("rk0")
 	if err != nil {

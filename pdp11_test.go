@@ -33,9 +33,11 @@ var pdpTests = []struct {
 
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
-		rkinit()
+		var rk RK05
+		rk.rkinit()
 		kb := KB11{
 			buf: tt.input,
+			rk:  &rk,
 		}
 		kb.Reset()
 		for i := 0; i < tt.cycles; i++ {
