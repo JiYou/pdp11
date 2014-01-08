@@ -34,7 +34,10 @@ var pdpTests = []struct {
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		rkinit()
+		var unibus Unibus
 		var cpu KB11
+		cpu.unibus = &unibus
+		unibus.cpu = &cpu
 		cpu.Reset()
 		go func() {
 			defer close(cpu.Input)
