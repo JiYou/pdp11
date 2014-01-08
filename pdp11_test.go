@@ -29,16 +29,12 @@ var pdpTests = []struct {
 	{"date\n", N}, // processor loops
 	// { "ls\n", N }, 	// read from odd address
 	//{"who\n", N}, // read from no-access page 01002
+	// {"cat /etc/passwd", N*N},
 }
 
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
-		rkinit()
-		var unibus Unibus
-		var cpu KB11
-		cpu.unibus = &unibus
-		unibus.cpu = &cpu
-		cpu.Reset()
+		cpu := New()
 		go func() {
 			defer close(cpu.Input)
 			for _, c := range tt.input {

@@ -1209,7 +1209,7 @@ func (k *KB11) step() {
 			return
 		}
 		clearterminal()
-		rkreset()
+		k.unibus.rk.rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
@@ -1244,7 +1244,7 @@ func (k *KB11) Reset() {
 	clearterminal()
 	// buffer for bootloader
 	input = []int{'u', 'n', 'i', 'x', '\n'}
-	rkreset()
+	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
 }
@@ -1282,8 +1282,11 @@ func (k *KB11) onestep() {
 func New() *KB11 {
 	var cpu KB11
 	var unibus Unibus
+	var rk RK05
 	cpu.unibus = &unibus
 	unibus.cpu = &cpu
+	unibus.rk = &rk
+	rk.rkinit()
 	cpu.Reset()
 	return &cpu
 }

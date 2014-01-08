@@ -20,7 +20,6 @@ func stdin(c chan uint8) {
 }
 
 func main() {
-	pdp11.RKINIT()
 	cpu := pdp11.New()
 	go stdin(cpu.Input)
 	for {
