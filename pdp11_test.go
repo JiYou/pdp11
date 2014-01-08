@@ -28,7 +28,8 @@ var pdpTests = []struct {
 	{"STTY -LCASE\n", N},
 	{"date\n", N}, // processor loops
 	// { "ls\n", N }, 	// read from odd address
-	//{"who\n", N}, // read from no-access page 01002
+	{"who\n", N}, // read from no-access page 01002
+	// {"cat /etc/passwd", N*N},
 }
 
 func TestPDP(t *testing.T) {
