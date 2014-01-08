@@ -84,7 +84,6 @@ type KB11 struct {
 	instr    int // current instruction
 
 	Input chan uint8
-	buf   string // console buffer
 
 	rk *RK05 // drive 0
 }
