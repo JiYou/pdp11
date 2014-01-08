@@ -84,6 +84,9 @@ type KB11 struct {
 	instr    int // current instruction
 
 	Input chan uint8
+	buf string // console buffer
+
+	rk *RK05 // drive 0
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -127,7 +130,7 @@ func (k *KB11) physread16(a int) int {
 	case a&0777770 == 0777560:
 		return consread16(a)
 	case a&0777760 == 0777400:
-		return rkread16(a)
+		return k.rk.rkread16(a)
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
 		return mmuread16(a)
 	case a == 0776000:
@@ -198,7 +201,7 @@ func (k *KB11) physwrite16(a, v int) {
 	} else if (a & 0777770) == 0777560 {
 		conswrite16(a, v)
 	} else if (a & 0777700) == 0777400 {
-		rkwrite16(a, v)
+		k.rk.rkwrite16(a, v)
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
 		mmuwrite16(a, v)
 	} else {
@@ -1306,7 +1309,7 @@ func (k *KB11) step() {
 			return
 		}
 		clearterminal()
-		rkreset()
+		k.rk.rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
@@ -1341,7 +1344,7 @@ func (k *KB11) Reset() {
 	clearterminal()
 	// buffer for bootloader
 	input = []int{'u', 'n', 'i', 'x', '\n'}
-	rkreset()
+	k.rk.rkreset()
 	clkcounter = 0
 	waiting = false
 }
@@ -1374,4 +1377,13 @@ func (k *KB11) onestep() {
 			interrupt(INTCLOCK, 6)
 		}
 	}
+}
+
+func New() *KB11 {
+	var cpu KB11
+	var rk RK05
+	cpu.rk = &rk
+	rk.rkinit()
+	cpu.Reset()
+	return &cpu
 }
