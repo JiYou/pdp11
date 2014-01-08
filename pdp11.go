@@ -12,7 +12,6 @@ const (
 const pr = false // debug
 
 var (
-	memory            [128 * 1024]int // word addressing
 	curuser, prevuser bool
 	LKS, clkcounter   int
 	waiting           = false
@@ -27,6 +26,10 @@ type page struct {
 	par, pdr        int
 	addr, len       int
 	read, write, ed bool
+}
+
+type memory struct {
+	core		[128 * 1024]int // word addressed
 }
 
 // traps
@@ -84,6 +87,7 @@ type KB11 struct {
 	instr    int // current instruction
 	
 	Input  	chan uint8
+	memory
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -113,7 +117,7 @@ func (k *KB11) physread16(a int) int {
 	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	case a < 0760000:
-		return memory[a>>1]
+		return k.memory.core[a>>1]
 	case a == 0777546:
 		return LKS
 	case a == 0777570:
@@ -148,11 +152,11 @@ func (k *KB11) physread8(a int) int {
 func (k *KB11) physwrite8(a, v int) {
 	if a < 0760000 {
 		if a&1 == 1 {
-			memory[a>>1] &= 0xFF
-			memory[a>>1] |= (v & 0xFF) << 8
+			k.memory.core[a>>1] &= 0xFF
+			k.memory.core[a>>1] |= (v & 0xFF) << 8
 		} else {
-			memory[a>>1] &= 0xFF00
-			memory[a>>1] |= v & 0xFF
+			k.memory.core[a>>1] &= 0xFF00
+			k.memory.core[a>>1] |= v & 0xFF
 		}
 	} else {
 		if a&1 == 1 {

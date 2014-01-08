@@ -34,12 +34,15 @@ var pdpTests = []struct {
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		rkinit()
-		kb := KB11{
-			buf: tt.input,
-		}
-		kb.Reset()
+		var cpu KB11
+		cpu.Reset()
+		go func() {
+			for _, c := range tt.input {
+				cpu.Input <- uint8(c)
+			}
+		}()
 		for i := 0; i < tt.cycles; i++ {
-			kb.onestep()
+			cpu.onestep()
 		}
 	}
 }
