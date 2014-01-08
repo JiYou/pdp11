@@ -7,22 +7,22 @@ type Unibus struct {
 	cpu *KB11
 }
 
-func (k *KB11) physread16(a int) int {
+func (u *Unibus) physread16(a int) int {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	case a < 0760000:
 		return memory[a>>1]
 	case a == 0777546:
-		return k.unibus.LKS
+		return u.LKS
 	case a == 0777570:
 		return 0173030
 	case a == 0777572:
-		return k.SR0
+		return u.cpu.SR0
 	case a == 0777576:
-		return k.SR2
+		return u.cpu.SR2
 	case a == 0777776:
-		return k.PS
+		return u.cpu.PS
 	case a&0777770 == 0777560:
 		return consread16(a)
 	case a&0777760 == 0777400:
@@ -36,15 +36,15 @@ func (k *KB11) physread16(a int) int {
 	}
 }
 
-func (k *KB11) physread8(a int) int {
-	val := k.physread16(a & ^1)
+func (u *Unibus) physread8(a int) int {
+	val := u.physread16(a & ^1)
 	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
 }
 
-func (k *KB11) physwrite8(a, v int) {
+func (u *Unibus) physwrite8(a, v int) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
@@ -55,14 +55,14 @@ func (k *KB11) physwrite8(a, v int) {
 		}
 	} else {
 		if a&1 == 1 {
-			k.physwrite16(a&^1, (k.physread16(a)&0xFF)|(v&0xFF)<<8)
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			k.physwrite16(a&^1, (k.physread16(a)&0xFF00)|(v&0xFF))
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }
 
-func (k *KB11) physwrite16(a, v int) {
+func (u *Unibus) physwrite16(a, v int) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}
@@ -71,10 +71,10 @@ func (k *KB11) physwrite16(a, v int) {
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:
-			k.switchmode(false)
+			u.cpu.switchmode(false)
 			break
 		case 3:
-			k.switchmode(true)
+			u.cpu.switchmode(true)
 			break
 		default:
 			panic("invalid mode")
@@ -89,11 +89,11 @@ func (k *KB11) physwrite16(a, v int) {
 		default:
 			panic("invalid mode")
 		}
-		k.PS = v
+		u.cpu.PS = v
 	} else if a == 0777546 {
-		k.unibus.LKS = v
+		u.LKS = v
 	} else if a == 0777572 {
-		k.SR0 = v
+		u.cpu.SR0 = v
 	} else if (a & 0777770) == 0777560 {
 		conswrite16(a, v)
 	} else if (a & 0777700) == 0777400 {

@@ -210,19 +210,19 @@ func mmuwrite16(a, v int) {
 }
 
 func (k *KB11) read8(a int) int {
-	return k.physread8(k.decode(a, false, curuser))
+	return k.unibus.physread8(k.decode(a, false, curuser))
 }
 
 func (k *KB11) read16(a int) int {
-	return k.physread16(k.decode(a, false, curuser))
+	return k.unibus.physread16(k.decode(a, false, curuser))
 }
 
 func (k *KB11) write8(a, v int) {
-	k.physwrite8(k.decode(a, true, curuser), v)
+	k.unibus.physwrite8(k.decode(a, true, curuser), v)
 }
 
 func (k *KB11) write16(a, v int) {
-	k.physwrite16(k.decode(a, true, curuser), v)
+	k.unibus.physwrite16(k.decode(a, true, curuser), v)
 }
 
 func (k *KB11) fetch16() int {
@@ -460,7 +460,7 @@ func (k *KB11) step() {
 	k.PC = k.R[7]
 	ia := k.decode(k.R[7], false, curuser)
 	k.R[7] += 2
-	k.instr = k.physread16(ia)
+	k.instr = k.unibus.physread16(ia)
 	if pr {
 		k.printstate()
 	}
@@ -1027,7 +1027,7 @@ func (k *KB11) step() {
 		} else if da < 0 {
 			panic("invalid MFPI instruction")
 		} else {
-			val = k.physread16(k.decode(da, false, prevuser))
+			val = k.unibus.physread16(k.decode(da, false, prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
@@ -1054,7 +1054,7 @@ func (k *KB11) step() {
 			panic("invalid MTPI instrution")
 		} else {
 			sa := k.decode(da, true, prevuser)
-			k.physwrite16(sa, val)
+			k.unibus.physwrite16(sa, val)
 		}
 		k.PS &= 0xFFF0
 		k.PS |= FLAGC
@@ -1202,7 +1202,7 @@ func (k *KB11) step() {
 			val &= 047
 			val |= k.PS & 0177730
 		}
-		k.physwrite16(0777776, val)
+		k.unibus.physwrite16(0777776, val)
 		return
 	case 0000005: // RESET
 		if curuser {
