@@ -82,8 +82,8 @@ type KB11 struct {
 	KSP, USP int    // kernel and user stack pointer
 	SR0, SR2 int
 	instr    int // current instruction
-	
-	Input  	chan uint8
+
+	Input chan uint8
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -549,7 +549,7 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
-		if c, ok := <- k.Input; ok {
+		if c, ok := <-k.Input; ok {
 			addchar(int(c))
 		}
 		return
