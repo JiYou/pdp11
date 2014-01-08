@@ -20,11 +20,9 @@ func stdin(c chan uint8) {
 }
 
 func main() {
-	pdp11.RKINIT()
-	var kb pdp11.KB11
-	kb.Reset()
-	go stdin(kb.Input)
+	cpu := pdp11.New()
+	go stdin(cpu.Input)
 	for {
-		kb.Step()
+		cpu.Step()
 	}
 }
