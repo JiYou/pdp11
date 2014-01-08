@@ -1,9 +1,9 @@
 package main
 
 import (
-	"pdp11"
-	"os"
 	"log"
+	"os"
+	"pdp11"
 )
 
 func stdin(c chan uint8) {

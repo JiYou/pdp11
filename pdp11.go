@@ -84,7 +84,7 @@ type KB11 struct {
 	instr    int // current instruction
 
 	Input chan uint8
-	buf string // console buffer
+	buf   string // console buffer
 
 	rk *RK05 // drive 0
 }
@@ -1349,7 +1349,7 @@ func (k *KB11) Reset() {
 	waiting = false
 }
 
-func (k *KB11) Step() { k.onestep() }
+func (k *KB11) Step() { k.onestep(); k.rk.Step() }
 
 func (k *KB11) onestep() {
 	defer func() {

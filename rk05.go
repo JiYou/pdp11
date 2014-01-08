@@ -14,6 +14,7 @@ const (
 
 type RK05 struct {
 	RKBA, RKDS, RKER, RKCS, RKWC, drive, sector, surface, cylinder, rkimg int
+	running                                                               bool
 	rkdisk                                                                []byte // rk0 disk image
 }
 
@@ -68,8 +69,22 @@ func (r *RK05) rkerror(code int) {
 	panic(msg)
 }
 
-func (r *RK05) rkrwsec(t bool) {
-	// fmt.Println("rkrwsec: RKBA:", RKBA, "RKWC:", RKWC, "cylinder:", cylinder, "sector:", sector)
+func (r *RK05) Step() {
+	if !r.running {
+		return
+	}
+	var w bool
+	switch (r.RKCS & 017) >> 1 {
+	case 0:
+		return
+	case 1:
+		w = true
+	case 2:
+		w = false
+	default:
+		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((r.RKCS & 017) >> 1)))
+	}
+	//fmt.Println("rkrwsec: RKBA:", r.RKBA, "RKWC:", r.RKWC, "cylinder:", r.cylinder, "sector:", r.sector)
 	if r.drive != 0 {
 		r.rkerror(RKNXD)
 	}
@@ -81,7 +96,7 @@ func (r *RK05) rkrwsec(t bool) {
 	}
 	pos := (r.cylinder*24 + r.surface*12 + r.sector) * 512
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
-		if t {
+		if w {
 			val := memory[r.RKBA>>1]
 			r.rkdisk[pos] = byte(val & 0xFF)
 			r.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
@@ -104,9 +119,8 @@ func (r *RK05) rkrwsec(t bool) {
 			}
 		}
 	}
-	if r.RKWC != 0 {
-		r.rkrwsec(t)
-	} else {
+	if r.RKWC == 0 {
+		r.running = false
 		r.rkready()
 		if r.RKCS&(1<<6) != 0 {
 			interrupt(INTRK, 5)
@@ -118,15 +132,9 @@ func (r *RK05) rkgo() {
 	switch (r.RKCS & 017) >> 1 {
 	case 0:
 		r.rkreset()
-		break
-	case 1:
+	case 1, 2:
+		r.running = true
 		r.rknotready()
-		r.rkrwsec(true)
-		break
-	case 2:
-		r.rknotready()
-		r.rkrwsec(false)
-		break
 	default:
 		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((r.RKCS & 017) >> 1)))
 	}

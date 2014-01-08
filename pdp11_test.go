@@ -42,7 +42,7 @@ func TestPDP(t *testing.T) {
 			}
 		}()
 		for i := 0; i < tt.cycles; i++ {
-			cpu.onestep()
+			cpu.Step()
 		}
 	}
 }
