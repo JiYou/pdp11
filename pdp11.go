@@ -450,7 +450,7 @@ func (k *KB11) step() {
 		select {
 		case c, ok := <-k.Input:
 			if ok {
-				addchar(int(c))
+				k.unibus.cons.addchar(int(c))
 			}
 		default:
 		}
@@ -1216,7 +1216,7 @@ func (k *KB11) step() {
 		if curuser {
 			return
 		}
-		clearterminal()
+		k.unibus.cons.clearterminal()
 		k.unibus.rk.rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
@@ -1249,8 +1249,8 @@ func (k *KB11) Reset() {
 		pages[i] = createpage(0, 0)
 	}
 	k.R[7] = 02002
-	clearterminal()
-	input = []int{'u', 'n', 'i', 'x', '\n'}
+	k.unibus.cons.clearterminal()
+	k.unibus.cons.input = []int{'u', 'n', 'i', 'x', '\n'}
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
@@ -1259,7 +1259,7 @@ func (k *KB11) Reset() {
 func (k *KB11) Step() {
 	k.onestep()
 	k.unibus.rk.Step()
-	StepConsole(k)
+	k.unibus.cons.Step(k)
 }
 
 func (k *KB11) onestep() {
@@ -1295,9 +1295,11 @@ func New() *KB11 {
 	var cpu KB11
 	var unibus Unibus
 	var rk RK05
+	var cons Console
 	cpu.unibus = &unibus
 	unibus.cpu = &cpu
 	unibus.rk = &rk
+	unibus.cons = &cons
 	rk.rkinit()
 	cpu.Reset()
 	return &cpu

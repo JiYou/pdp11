@@ -3,9 +3,10 @@ package pdp11
 var memory [128 * 1024]int // word addressing
 
 type Unibus struct {
-	LKS int
-	cpu *KB11
-	rk  *RK05 // drive 0
+	LKS  int
+	cpu  *KB11
+	rk   *RK05 // drive 0
+	cons *Console
 }
 
 func (u *Unibus) physread16(a int) int {
@@ -25,7 +26,7 @@ func (u *Unibus) physread16(a int) int {
 	case a == 0777776:
 		return u.cpu.PS
 	case a&0777770 == 0777560:
-		return consread16(a)
+		return u.cons.consread16(a)
 	case a&0777760 == 0777400:
 		return u.rk.rkread16(a)
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
@@ -96,7 +97,7 @@ func (u *Unibus) physwrite16(a, v int) {
 	} else if a == 0777572 {
 		u.cpu.SR0 = v
 	} else if (a & 0777770) == 0777560 {
-		conswrite16(a, v)
+		u.cons.conswrite17(a, v)
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, v)
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
