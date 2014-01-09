@@ -97,7 +97,7 @@ func (u *Unibus) physwrite16(a, v int) {
 	} else if a == 0777572 {
 		u.cpu.SR0 = v
 	} else if (a & 0777770) == 0777560 {
-		u.cons.conswrite17(a, v)
+		u.cons.conswrite16(a, v)
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, v)
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
