@@ -2,84 +2,82 @@ package pdp11
 
 import "os"
 
-//import "fmt"
+type Console struct {
+	TKS, TKB, TPS, TPB int
 
-var TKS, TKB, TPS, TPB int
-
-func clearterminal() {
-	TKS = 0
-	TPS = 1 << 7
-	TKB = 0
-	TPB = 0
+	input []int // bootstrap chars
+	count uint8 // step delay
 }
 
-var outb [1]byte
+func (c *Console) clearterminal() {
+	c.TKS = 0
+	c.TPS = 1 << 7
+	c.TKB = 0
+	c.TPB = 0
+}
 
-func writeterminal(c int) {
-	switch c {
+func (c *Console) writeterminal(char int) {
+	var outb [1]byte
+	switch char {
 	case 13:
 		// skip
 	default:
-		outb[0] = byte(c)
+		outb[0] = byte(char)
 		os.Stdout.Write(outb[:])
 	}
 }
 
-func addchar(c int) {
-	switch c {
+func (c *Console) addchar(char int) {
+	switch char {
 	case 42:
-		TKB = 4
+		c.TKB = 4
 	case 19:
-		TKB = 034
+		c.TKB = 034
 	case 46:
-		TKB = 127
+		c.TKB = 127
 	default:
-		TKB = c
+		c.TKB = char
 	}
-	TKS |= 0x80
-	if TKS&(1<<6) != 0 {
+	c.TKS |= 0x80
+	if c.TKS&(1<<6) != 0 {
 		interrupt(INTTTYIN, 4)
 	}
 }
 
-var input []int
-
-func getchar() int {
-	if TKS&0x80 == 0x80 {
-		TKS &= 0xff7e
-		return TKB
+func (c *Console) getchar() int {
+	if c.TKS&0x80 == 0x80 {
+		c.TKS &= 0xff7e
+		return c.TKB
 	}
 	return 0
 }
 
-var count uint8
-
-func StepConsole(k *KB11) {
-	count++
-	if count%32 != 0 {
+func (c *Console) Step(k *KB11) {
+	c.count++
+	if c.count%32 != 0 {
 		return
 	}
-	if TPS&0x80 == 0 {
-		writeterminal(TPB & 0x7f)
-		TPS |= 0x80
-		if TPS&(1<<6) != 0 {
+	if c.TPS&0x80 == 0 {
+		c.writeterminal(c.TPB & 0x7f)
+		c.TPS |= 0x80
+		if c.TPS&(1<<6) != 0 {
 			interrupt(INTTTYOUT, 4)
 		}
 	}
 }
 
-func consread16(a int) int {
+func (c *Console) consread16(a int) int {
 	switch a {
 	case 0777560:
-		if len(input) > 0 {
-			addchar(input[0])
-			input = input[1:]
+		if len(c.input) > 0 {
+			c.addchar(c.input[0])
+			c.input = c.input[1:]
 		}
-		return TKS
+		return c.TKS
 	case 0777562:
-		return getchar()
+		return c.getchar()
 	case 0777564:
-		return TPS
+		return c.TPS
 	case 0777566:
 		return 0
 	default:
@@ -87,23 +85,23 @@ func consread16(a int) int {
 	}
 }
 
-func conswrite16(a, v int) {
+func (c *Console) conswrite16(a, v int) {
 	switch a {
 	case 0777560:
 		if v&(1<<6) != 0 {
-			TKS |= 1 << 6
+			c.TKS |= 1 << 6
 		} else {
-			TKS &= ^(1 << 6)
+			c.TKS &= ^(1 << 6)
 		}
 	case 0777564:
 		if v&(1<<6) != 0 {
-			TPS |= 1 << 6
+			c.TPS |= 1 << 6
 		} else {
-			TPS &= ^(1 << 6)
+			c.TPS &= ^(1 << 6)
 		}
 	case 0777566:
-		TPB = v & 0xff
-		TPS &= 0xff7f
+		c.TPB = v & 0xff
+		c.TPS &= 0xff7f
 	default:
 		panic("write to invalid address " + ostr(a, 6))
 	}
