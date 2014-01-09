@@ -80,10 +80,10 @@ type KB11 struct {
 	PC       int    // address of current instruction
 	KSP, USP int    // kernel and user stack pointer
 	SR0, SR2 int
-	instr    int    // current instruction
+	instr    int // current instruction
 
-	Input    chan uint8
-	unibus   *Unibus
+	Input  chan uint8
+	unibus *Unibus
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -446,6 +446,9 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
+		if c, ok := <-k.Input; ok {
+			addchar(int(c))
+		}
 		return
 	}
 	k.PC = k.R[7]
@@ -1243,21 +1246,16 @@ func (k *KB11) Reset() {
 	}
 	k.R[7] = 02002
 	clearterminal()
-	input = []int{'u','n','i','x','\n'}
+	input = []int{'u', 'n', 'i', 'x', '\n'}
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
 }
 
 func (k *KB11) Step() {
-	k.onestep();
+	k.onestep()
 	k.unibus.rk.Step()
-	if waiting {
-	// console not busy
-	if c, ok := <-k.Input; ok {
-		addchar(int(c))
-	}
-	}
+	StepConsole(k)
 }
 
 func (k *KB11) onestep() {
