@@ -4,11 +4,13 @@ import "os"
 
 //import "fmt"
 
-var TKS, TPS, keybuf int
+var TKS, TKB, TPS, TPB int
 
 func clearterminal() {
 	TKS = 0
 	TPS = 1 << 7
+	TKB = 0
+	TPB = 0
 }
 
 func writeterminal(c int) {
@@ -16,26 +18,15 @@ func writeterminal(c int) {
 }
 
 func addchar(c int) {
-	TKS |= 0x80
-	keybuf = c
-	if TKS&(1<<6) != 0 {
-		interrupt(INTTTYIN, 4)
-	}
-}
-
-func specialchar(c int) {
 	switch c {
 	case 42:
-		keybuf = 4
-		break
+		TKB = 4
 	case 19:
-		keybuf = 034
-		break
+		TKB = 034
 	case 46:
-		keybuf = 127
-		break
+		TKB = 127
 	default:
-		return
+		TKB = c
 	}
 	TKS |= 0x80
 	if TKS&(1<<6) != 0 {
@@ -48,9 +39,30 @@ var input []int
 func getchar() int {
 	if TKS&0x80 == 0x80 {
 		TKS &= 0xff7e
-		return keybuf
+		return TKB
 	}
 	return 0
+}
+
+var count uint8
+
+func StepConsole(k *KB11) {
+	if waiting {
+		// console not busy
+		if c, ok := <-k.Input; ok {
+			addchar(int(c))
+		}
+	}
+	if count++; count != 0 {
+		return
+	}
+	if TPS&0x80 == 0 {
+		TPS |= 0x80
+		writeterminal(TPB & 0x7f)
+		if TPS&(1<<6) != 0 {
+			interrupt(INTTTYOUT, 4)
+		}
+	}
 }
 
 func consread16(a int) int {
@@ -88,23 +100,8 @@ func conswrite16(a, v int) {
 			TPS &= ^(1 << 6)
 		}
 	case 0777566:
-		v &= 0xFF
-		if !(TPS&0x80 == 0x80) {
-			break
-		}
-		switch v {
-		case 13:
-			break
-		default:
-			writeterminal(v & 0x7F)
-		}
+		TPB = v & 0xff
 		TPS &= 0xff7f
-		if TPS&(1<<6) != 0 {
-			TPS |= 0x80
-			interrupt(INTTTYOUT, 4)
-		} else {
-			TPS |= 0x80
-		}
 	default:
 		panic("write to invalid address " + ostr(a, 6))
 	}
