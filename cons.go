@@ -13,8 +13,16 @@ func clearterminal() {
 	TPB = 0
 }
 
+var outb [1]byte
+
 func writeterminal(c int) {
-	os.Stdout.Write([]byte{byte(c)})
+	switch c {
+	case 13:
+		// skip
+	default:
+		outb[0] = byte(c)
+		os.Stdout.Write(outb[:])
+	}
 }
 
 func addchar(c int) {
@@ -47,14 +55,11 @@ func getchar() int {
 var count uint8
 
 func StepConsole(k *KB11) {
-	if waiting {
-		// console not busy
-		if c, ok := <-k.Input; ok {
-			addchar(int(c))
-		}
-	}
 	if count++; count != 0 {
 		return
+	}
+	if waiting {
+		// console not busy
 	}
 	if TPS&0x80 == 0 {
 		TPS |= 0x80
@@ -66,7 +71,6 @@ func StepConsole(k *KB11) {
 }
 
 func consread16(a int) int {
-	//fmt.Printf("consread16: %o\n", a)
 	switch a {
 	case 0777560:
 		if len(input) > 0 {
@@ -75,13 +79,15 @@ func consread16(a int) int {
 		}
 		return TKS
 	case 0777562:
-		return getchar()
+		// return getchar()
+		return TKB
 	case 0777564:
 		return TPS
 	case 0777566:
 		return 0
+	default:
+		panic("read from invalid address " + ostr(a, 6))
 	}
-	panic("read from invalid address " + ostr(a, 6))
 }
 
 func conswrite16(a, v int) {

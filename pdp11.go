@@ -446,6 +446,9 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
+		if c, ok := <-k.Input; ok {
+			addchar(int(c))
+		}
 		return
 	}
 	k.PC = k.R[7]
