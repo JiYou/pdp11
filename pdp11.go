@@ -9,7 +9,7 @@ const (
 	FLAGC = 1
 )
 
-const pr = false // debug
+const pr = true // debug
 
 var (
 	memory            [128 * 1024]int // word addressing
@@ -349,14 +349,7 @@ func ostr(z interface{}, n int) string {
 var writedebug = fmt.Print
 
 func (k *KB11) printstate() {
-	writedebug("R0 " + ostr(k.R[0], 6) + " " +
-		"R1 " + ostr(k.R[1], 6) + " " +
-		"R2 " + ostr(k.R[2], 6) + " " +
-		"R3 " + ostr(k.R[3], 6) + " " +
-		"R4 " + ostr(k.R[4], 6) + " " +
-		"R5 " + ostr(k.R[5], 6) + " " +
-		"R6 " + ostr(k.R[6], 6) + " " +
-		"R7 " + ostr(k.R[7], 6) + "\n[")
+	writedebug(fmt.Sprintf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", k.R[0], k.R[1], k.R[2], k.R[3], k.R[4], k.R[5], k.R[6], k.R[7]))
 	if prevuser {
 		writedebug("u")
 	} else {
