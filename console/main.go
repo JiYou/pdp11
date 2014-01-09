@@ -7,6 +7,7 @@ import (
 )
 
 func stdin(c chan uint8) {
+	c <- 'u'; c <- 'n'; c <- 'i'; c <- 'x'; c <- '\n'
 	var b [1]byte
 	for {
 		n, err := os.Stdin.Read(b[:])

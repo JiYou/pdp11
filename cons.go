@@ -1,12 +1,15 @@
 package pdp11
 
-import "os"
+import (
+	"os"
+)
 
 type Console struct {
 	TKS, TKB, TPS, TPB int
 
-	input []int // bootstrap chars
+	Input  chan uint8
 	count uint8 // step delay
+	ready bool
 }
 
 func (c *Console) clearterminal() {
@@ -14,6 +17,7 @@ func (c *Console) clearterminal() {
 	c.TPS = 1 << 7
 	c.TKB = 0
 	c.TPB = 0
+	c.ready = true
 }
 
 func (c *Console) writeterminal(char int) {
@@ -47,12 +51,23 @@ func (c *Console) addchar(char int) {
 func (c *Console) getchar() int {
 	if c.TKS&0x80 == 0x80 {
 		c.TKS &= 0xff7e
+		c.ready = true
 		return c.TKB
 	}
 	return 0
 }
 
 func (c *Console) Step(k *KB11) {
+	if c.ready {
+		select {
+		case v, ok := <-c.Input:
+			if ok {
+				c.addchar(int(v))
+				c.ready = false
+			}
+		default:
+		}
+	}
 	c.count++
 	if c.count%32 != 0 {
 		return
@@ -69,10 +84,6 @@ func (c *Console) Step(k *KB11) {
 func (c *Console) consread16(a int) int {
 	switch a {
 	case 0777560:
-		if len(c.input) > 0 {
-			c.addchar(c.input[0])
-			c.input = c.input[1:]
-		}
 		return c.TKS
 	case 0777562:
 		return c.getchar()

@@ -82,7 +82,7 @@ type KB11 struct {
 	SR0, SR2 int
 	instr    int // current instruction
 
-	Input  chan uint8
+	Input		 chan uint8
 	unibus *Unibus
 }
 
@@ -446,14 +446,6 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
-
-		select {
-		case c, ok := <-k.Input:
-			if ok {
-				k.unibus.cons.addchar(int(c))
-			}
-		default:
-		}
 		return
 	}
 	k.PC = k.R[7]
@@ -1234,7 +1226,7 @@ func (k *KB11) Reset() {
 	k.PC = 0
 	k.KSP = 0
 	k.USP = 0
-	k.Input = make(chan uint8)
+	k.Input = make(chan uint8) // unix\n
 	curuser = false
 	prevuser = false
 	k.SR0 = 0
@@ -1250,7 +1242,7 @@ func (k *KB11) Reset() {
 	}
 	k.R[7] = 02002
 	k.unibus.cons.clearterminal()
-	k.unibus.cons.input = []int{'u', 'n', 'i', 'x', '\n'}
+	k.unibus.cons.Input = k.Input
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false

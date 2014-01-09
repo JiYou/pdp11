@@ -18,15 +18,16 @@ func TestXOR(t *testing.T) {
 	}
 }
 
-const N = 4000000
+const N = 2 * 1000 * 1000
 
 var pdpTests = []struct {
 	input  string
 	cycles int
 }{
 	{"", N},
+	{"\n", N},
 	//	{"STTY -LCASE\n", N},
-	{"date\n", N},    // processor loops
+	{"date\n", N*N},    // processor loops
 	{"ls /bin\n", N}, // read from odd address
 	{"who\n", N},     // read from no-access page 01002
 	{"cat /etc/passwd\n", N},
@@ -47,7 +48,8 @@ func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		cpu := New()
 		go func() {
-			defer close(cpu.Input)
+			c := cpu.Input
+			c <- 'u'; c <- 'n'; c <- 'i'; c <- 'x'; c <- '\n'
 			for _, c := range tt.input {
 				cpu.Input <- uint8(c)
 			}
