@@ -24,10 +24,10 @@ var pdpTests = []struct {
 	input  string
 	cycles int
 }{
-	{"", N},
-	{"STTY -LCASE\n", N},
-	{"date\n", N}, // processor loops
-	// { "ls\n", N }, 	// read from odd address
+	//	{"", N},
+	//	{"STTY -LCASE\n", N},
+	//	{"date\n", N}, // processor loops
+	{"ls\n", N}, // read from odd address
 	//{"who\n", N}, // read from no-access page 01002
 	// {"cat /etc/passwd", N*N},
 }

@@ -154,10 +154,3 @@ func disasm(a int) string {
 	}
 	return msg
 }
-
-func _dumpmem() {
-	const start = 0
-	for i := start; i < 256; i += 4 {
-		fmt.Printf("%#d: %#o\t%#o\t%#o\t%#o\n", i, memory[i], memory[i+1], memory[i+2], memory[i+3])
-	}
-}
