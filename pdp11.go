@@ -74,9 +74,16 @@ func xor(x, y int) int {
 	return z
 }
 
+func xor16(x, y uint16) uint16 {
+	a := x & y
+	b := ^x & ^y
+	z := ^a & ^b
+	return z
+}
+
 type KB11 struct {
 	R        [8]int // registers
-	PS       int    // processor status
+	PS       uint16    // processor status
 	PC       int    // address of current instruction
 	KSP, USP int    // kernel and user stack pointer
 	SR0, SR2 int
@@ -327,13 +334,13 @@ func (k *KB11) handleinterrupt(vec int) {
 			panic(trap)
 		}
 		k.R[7] = memory[vec>>1]
-		k.PS = memory[(vec>>1)+1]
+		k.PS = uint16(memory[(vec>>1)+1])
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
-	prev := k.PS
+	prev := int(k.PS)
 	k.switchmode(false)
 	k.push(prev)
 	k.push(k.R[7])
@@ -356,7 +363,7 @@ func (k *KB11) trapat(vec int, msg string) {
 			panic(t)
 		}
 		k.R[7] = memory[vec>>1]
-		k.PS = memory[(vec>>1)+1]
+		k.PS = uint16(memory[(vec>>1)+1])
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -368,7 +375,7 @@ func (k *KB11) trapat(vec int, msg string) {
 	writedebug("trap " + ostr(vec, 6) + " occured: " + msg + "\n")
 	k.printstate()
 
-	prev = k.PS
+	prev = int(k.PS)
 	k.switchmode(false)
 	k.push(prev)
 	k.push(k.R[7])
@@ -1086,22 +1093,22 @@ func (k *KB11) step() {
 		}
 		return
 	case 0002000:
-		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) {
+		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) {
 			k.branch(o)
 		}
 		return
 	case 0002400:
-		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 {
+		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 {
 			k.branch(o)
 		}
 		return
 	case 0003000:
-		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
+		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0003400:
-		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
+		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
@@ -1147,7 +1154,7 @@ func (k *KB11) step() {
 		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
-		var vec, prev int
+		var vec int
 		switch {
 		case (instr & 0177400) == 0104000:
 			vec = 030
@@ -1158,12 +1165,12 @@ func (k *KB11) step() {
 		default:
 			vec = 020
 		}
-		prev = k.PS
+		prev := int(k.PS)
 		k.switchmode(false)
 		k.push(prev)
 		k.push(k.R[7])
 		k.R[7] = memory[vec>>1]
-		k.PS = memory[(vec>>1)+1]
+		k.PS = uint16(memory[(vec>>1)+1])
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -1171,9 +1178,9 @@ func (k *KB11) step() {
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			k.PS |= instr & 017
+			k.PS |= uint16(instr) & 017
 		} else {
-			k.PS &= ^(instr & 017)
+			k.PS &= ^(uint16(instr) & 017)
 		}
 		return
 	}
@@ -1200,7 +1207,7 @@ func (k *KB11) step() {
 		val := k.pop()
 		if curuser {
 			val &= 047
-			val |= k.PS & 0177730
+			val |= int(k.PS) & 0177730
 		}
 		k.unibus.physwrite16(0777776, val)
 		return
@@ -1268,7 +1275,7 @@ func (k *KB11) onestep() {
 	}()
 
 	k.step()
-	if len(interrupts) > 0 && interrupts[0].pri >= ((k.PS>>5)&7) {
+	if len(interrupts) > 0 && interrupts[0].pri >= ((int(k.PS)>>5)&7) {
 		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 		k.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
