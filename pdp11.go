@@ -83,13 +83,13 @@ func xor16(x, y uint16) uint16 {
 
 type KB11 struct {
 	R        [8]int // registers
-	PS       uint16    // processor status
-	PC       int    // address of current instruction
+	PS       uint16 // processor status
+	PC       uint16 // address of current instruction
 	KSP, USP int    // kernel and user stack pointer
 	SR0, SR2 int
 	instr    int // current instruction
 
-	Input		 chan uint8
+	Input  chan uint8
 	unibus *Unibus
 }
 
@@ -135,7 +135,7 @@ func (k *KB11) decode(a int, w, user bool) int {
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = k.PC
+		k.SR2 = int(k.PC)
 		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
 	}
 	if !p.read {
@@ -144,7 +144,7 @@ func (k *KB11) decode(a int, w, user bool) int {
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = k.PC
+		k.SR2 = int(k.PC)
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block = a >> 6 & 0177
@@ -156,7 +156,7 @@ func (k *KB11) decode(a int, w, user bool) int {
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = k.PC
+		k.SR2 = int(k.PC)
 		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
 	}
 	if w {
@@ -287,7 +287,7 @@ func (k *KB11) printstate() {
 		writedebug(" ")
 	}
 	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(k.instr, 6) + "   ")
-	writedebug(disasm(k.decode(k.PC, false, curuser)))
+	writedebug(disasm(k.decode(int(k.PC), false, curuser)))
 	writedebug("\n")
 }
 
@@ -455,7 +455,7 @@ func (k *KB11) step() {
 	if waiting {
 		return
 	}
-	k.PC = k.R[7]
+	k.PC = uint16(k.R[7])
 	ia := k.decode(k.R[7], false, curuser)
 	k.R[7] += 2
 	k.instr = k.unibus.physread16(ia)

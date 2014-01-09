@@ -27,9 +27,9 @@ var pdpTests = []struct {
 	{"", N},
 	{"\n", N},
 	//	{"STTY -LCASE\n", N},
-	{"date\n", N*N},    // processor loops
-	{"ls /bin\n", N}, // read from odd address
-	{"who\n", N},     // read from no-access page 01002
+	{"date\n", N * N}, // processor loops
+	{"ls /bin\n", N},  // read from odd address
+	{"who\n", N},      // read from no-access page 01002
 	{"cat /etc/passwd\n", N},
 	/**	{`ed test\.c
 	  a
@@ -49,7 +49,11 @@ func TestPDP(t *testing.T) {
 		cpu := New()
 		go func() {
 			c := cpu.Input
-			c <- 'u'; c <- 'n'; c <- 'i'; c <- 'x'; c <- '\n'
+			c <- 'u'
+			c <- 'n'
+			c <- 'i'
+			c <- 'x'
+			c <- '\n'
 			for _, c := range tt.input {
 				cpu.Input <- uint8(c)
 			}

@@ -7,7 +7,7 @@ import (
 type Console struct {
 	TKS, TKB, TPS, TPB int
 
-	Input  chan uint8
+	Input chan uint8
 	count uint8 // step delay
 	ready bool
 }
