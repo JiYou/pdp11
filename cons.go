@@ -55,15 +55,13 @@ func getchar() int {
 var count uint8
 
 func StepConsole(k *KB11) {
-	if count++; count != 0 {
+	count++
+	if count%32 != 0 {
 		return
 	}
-	if waiting {
-		// console not busy
-	}
 	if TPS&0x80 == 0 {
-		TPS |= 0x80
 		writeterminal(TPB & 0x7f)
+		TPS |= 0x80
 		if TPS&(1<<6) != 0 {
 			interrupt(INTTTYOUT, 4)
 		}
@@ -79,8 +77,7 @@ func consread16(a int) int {
 		}
 		return TKS
 	case 0777562:
-		// return getchar()
-		return TKB
+		return getchar()
 	case 0777564:
 		return TPS
 	case 0777566:
@@ -91,7 +88,6 @@ func consread16(a int) int {
 }
 
 func conswrite16(a, v int) {
-	//fmt.Printf("conswrite16: %o, %o\n", a,v )
 	switch a {
 	case 0777560:
 		if v&(1<<6) != 0 {

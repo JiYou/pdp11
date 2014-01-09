@@ -446,8 +446,13 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
-		if c, ok := <-k.Input; ok {
-			addchar(int(c))
+
+		select {
+		case c, ok := <-k.Input:
+			if ok {
+				addchar(int(c))
+			}
+		default:
 		}
 		return
 	}
@@ -1190,11 +1195,10 @@ func (k *KB11) step() {
 		panic("HALT")
 		return
 	case 0000001: // WAIT
-		//		stop();
-		//		setTimeout('LKS |= 0x80; interrupt(INTCLOCK, 6); run();', 20); // FIXME, really
 		if curuser {
 			break
 		}
+		//println("WAIT")
 		waiting = true
 		return
 	case 0000002: // RTI
@@ -1273,6 +1277,7 @@ func (k *KB11) onestep() {
 
 	k.step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((k.PS>>5)&7) {
+		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 		k.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
 	}

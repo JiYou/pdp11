@@ -18,13 +18,13 @@ func TestXOR(t *testing.T) {
 	}
 }
 
-const N = 2000000
+const N = 4000000
 
 var pdpTests = []struct {
 	input  string
 	cycles int
 }{
-	//	{"", N},
+	{"", N},
 	//	{"STTY -LCASE\n", N},
 	{"date\n", N},    // processor loops
 	{"ls /bin\n", N}, // read from odd address
