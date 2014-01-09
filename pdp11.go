@@ -111,7 +111,8 @@ func (k *KB11) switchmode(newm bool) {
 func (k *KB11) physread16(a int) int {
 	switch {
 	case a&1 == 1:
-		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
+		// panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
+		panic("read from odd address " + ostr(a, 6))
 	case a < 0760000:
 		return memory[a>>1]
 	case a == 0777546:
@@ -128,10 +129,8 @@ func (k *KB11) physread16(a int) int {
 		return consread16(a)
 	case a&0777760 == 0777400:
 		return rkread16(a)
-	case a&0777600 == 0772200 || (a&0777600) == 0777600:
+	case a&0777600 == 0772200, a&0777600 == 0777600:
 		return mmuread16(a)
-	case a == 0776000:
-		panic("lolwut")
 	default:
 		panic(trap{INTBUS, "read from invalid address " + ostr(a, 6)})
 	}
@@ -139,10 +138,12 @@ func (k *KB11) physread16(a int) int {
 
 func (k *KB11) physread8(a int) int {
 	val := k.physread16(a & ^1)
-	if a&1 != 0 {
+	switch a & 1 {
+	case 1:
 		return val >> 8
+	default:
+		return val & 0xff
 	}
-	return val & 0xFF
 }
 
 func (k *KB11) physwrite8(a, v int) {
@@ -156,7 +157,7 @@ func (k *KB11) physwrite8(a, v int) {
 		}
 	} else {
 		if a&1 == 1 {
-			k.physwrite16(a&^1, (k.physread16(a)&0xFF)|(v&0xFF)<<8)
+			k.physwrite16(a&^1, (k.physread16(a)&0xFF)|((v&0xFF)<<8))
 		} else {
 			k.physwrite16(a&^1, (k.physread16(a)&0xFF00)|(v&0xFF))
 		}
@@ -164,19 +165,17 @@ func (k *KB11) physwrite8(a, v int) {
 }
 
 func (k *KB11) physwrite16(a, v int) {
-	if a%1 != 0 {
+	switch {
+	case a%1 == 1:
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
-	}
-	if a < 0760000 {
+	case a < 0760000:
 		memory[a>>1] = v
-	} else if a == 0777776 {
+	case a == 0777776:
 		switch v >> 14 {
 		case 0:
 			k.switchmode(false)
-			break
 		case 3:
 			k.switchmode(true)
-			break
 		default:
 			panic("invalid mode")
 		}
@@ -191,40 +190,43 @@ func (k *KB11) physwrite16(a, v int) {
 			panic("invalid mode")
 		}
 		k.PS = v
-	} else if a == 0777546 {
+	case a == 0777546:
 		LKS = v
-	} else if a == 0777572 {
+	case a == 0777572:
 		k.SR0 = v
-	} else if (a & 0777770) == 0777560 {
+	case a&0777770 == 0777560:
 		conswrite16(a, v)
-	} else if (a & 0777700) == 0777400 {
+	case a&0777700 == 0777400:
 		rkwrite16(a, v)
-	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
+	case a&0777600 == 0772200, a&0777600 == 0777600:
 		mmuwrite16(a, v)
-	} else {
+	default:
 		panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 	}
 }
 
-func (k *KB11) decode(a int, w, m bool) int {
+func (k *KB11) decode(a int, w, user bool) int {
+	/**	if a & 1 == 1 {
+		k.printstate()
+		fmt.Println("decode:", a)
+	} */
 	var p page
-	var user, block, disp int
+	var block, disp int
 	if !(k.SR0&1 == 1) {
 		if a >= 0170000 {
 			a += 0600000
 		}
 		return a
 	}
-	if m {
-		user = 8
+	if user {
+		p = pages[(a>>13)+8]
 	} else {
-		user = 0
+		p = pages[(a >> 13)]
 	}
-	p = pages[(a>>13)+user]
 	if w && !p.write {
 		k.SR0 = (1 << 13) | 1
 		k.SR0 |= (a >> 12) & ^(1)
-		if user != 0 {
+		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
@@ -233,7 +235,7 @@ func (k *KB11) decode(a int, w, m bool) int {
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
 		k.SR0 |= (a >> 12) & ^(1)
-		if user != 0 {
+		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
@@ -245,7 +247,7 @@ func (k *KB11) decode(a int, w, m bool) int {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
 		k.SR0 |= (a >> 12) & ^(1)
-		if user > 0 {
+		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
@@ -480,7 +482,7 @@ func (k *KB11) trapat(vec int, msg string) {
 }
 
 func (k *KB11) aget(v, l int) int {
-	if (v&7) >= 6 || (v&010 == 010) {
+	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
@@ -502,7 +504,7 @@ func (k *KB11) aget(v, l int) int {
 		addr += k.R[v&7]
 	}
 	addr &= 0xFFFF
-	if v&010 == 010 {
+	if v&010 != 0 {
 		addr = k.read16(addr)
 	}
 	return addr
@@ -510,10 +512,11 @@ func (k *KB11) aget(v, l int) int {
 
 func (k *KB11) memread(a, l int) int {
 	if a < 0 {
+		r := uint8(-(a + 1))
 		if l == 2 {
-			return k.R[-(a + 1)]
+			return k.R[r&7]
 		} else {
-			return k.R[-(a+1)] & 0xFF
+			return k.R[r&7] & 0xFF
 		}
 	}
 	if l == 2 {
@@ -524,11 +527,12 @@ func (k *KB11) memread(a, l int) int {
 
 func (k *KB11) memwrite(a, l, v int) {
 	if a < 0 {
+		r := uint8(-(a + 1))
 		if l == 2 {
-			k.R[-(a + 1)] = v
+			k.R[r&7] = v
 		} else {
-			k.R[-(a + 1)] &= 0xFF00
-			k.R[-(a + 1)] |= v
+			k.R[r&7] &= 0xFF00
+			k.R[r&7] |= v
 		}
 	} else if l == 2 {
 		k.write16(a, v)
@@ -578,7 +582,7 @@ func (k *KB11) step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		//printstate()
+		// k.printstate()
 		sa := k.aget(s, l)
 		val := k.memread(sa, l)
 		da := k.aget(d, l)
@@ -656,7 +660,7 @@ func (k *KB11) step() {
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		k.memwrite(da, l, val)
@@ -679,7 +683,7 @@ func (k *KB11) step() {
 		if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
 			k.PS |= FLAGV
 		}
-		if int(val1)+int(val2) >= 0xFFFF {
+		if val1+val2 >= 0xFFFF {
 			k.PS |= FLAGC
 		}
 		k.memwrite(da, 2, val)
@@ -726,17 +730,17 @@ func (k *KB11) step() {
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		val3 := val1 * val2
-		k.R[s&7] = (val3 & 0xFFFF0000) >> 16
-		k.R[(s&7)|1] = val3 & 0xFFFF
+		val := val1 * val2
+		k.R[s&7] = (val & 0xFFFF0000) >> 16
+		k.R[(s&7)|1] = val & 0xFFFF
 		k.PS &= 0xFFF0
-		if val3&0x80000000 != 0 {
+		if val&0x80000000 == 0x80000000 {
 			k.PS |= FLAGN
 		}
-		if (val3 & 0xFFFFFFFF) == 0 {
+		if val&0xFFFFFFFF == 0 {
 			k.PS |= FLAGZ
 		}
-		if val3 < (1<<15) || val3 >= ((1<<15)-1) {
+		if val < (1<<15) || val >= ((1<<15)-1) {
 			k.PS |= FLAGC
 		}
 		return
@@ -749,7 +753,7 @@ func (k *KB11) step() {
 			k.PS |= FLAGC
 			return
 		}
-		if int(val1/val2) >= 0x10000 {
+		if val1/val2 >= 0x10000 {
 			k.PS |= FLAGV
 			return
 		}
@@ -766,12 +770,12 @@ func (k *KB11) step() {
 		}
 		return
 	case 0072000: // ASH
-		val1 := uint(k.R[s&7])
+		val1 := k.R[s&7]
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
-		var val uint
-		if val2&040 == 040 {
+		var val int
+		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
 				val = 0xFFFF ^ (0xFFFF >> val2)
@@ -779,35 +783,37 @@ func (k *KB11) step() {
 			} else {
 				val = val1 >> val2
 			}
-			if val1&(1<<(val2-1)) != 0 {
+			shift := 1 << (val2 - 1)
+			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
-			if val1&(1<<(16-val2)) != 0 {
+			shift := 1 << (16 - val2)
+			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = int(val)
+		k.R[s&7] = val
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if val&0100000 != 0 {
+		if val&0100000 == 0100000 {
 			k.PS |= FLAGN
 		}
-		if xor(int(val&0100000), int(val1&0100000)) != 0 {
+		if xor(val&0100000, val1&0100000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
-		val1 := uint(k.R[s&7]<<16 | k.R[(s&7)|1])
+		val1 := k.R[s&7]<<16 | k.R[(s&7)|1]
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
-		var val uint
-		if val2&040 == 040 {
+		var val int
+		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
-			if val1&0x80000000 != 0 {
+			if val1&0x80000000 == 0x8000000 {
 				val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
 				val |= val1 >> val2
 			} else {
@@ -822,15 +828,15 @@ func (k *KB11) step() {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = int((val >> 16) & 0xFFFF)
-		k.R[(s&7)|1] = int(val & 0xFFFF)
+		k.R[s&7] = (val >> 16) & 0xFFFF
+		k.R[(s&7)|1] = val & 0xFFFF
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
 		if val&0x80000000 != 0 {
 			k.PS |= FLAGN
 		}
-		if xor(int(val&0x80000000), int(val1&0x80000000)) != 0 {
+		if xor(val&0x80000000, val1&0x80000000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
@@ -869,7 +875,7 @@ func (k *KB11) step() {
 		val := k.memread(da, l) ^ max
 		k.PS &= 0xFFF0
 		k.PS |= FLAGC
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if val == 0 {
@@ -881,7 +887,7 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := (k.memread(da, l) + 1) & max
 		k.PS &= 0xFFF1
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN | FLAGV
 		}
 		if val == 0 {
@@ -893,7 +899,7 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := (k.memread(da, l) - 1) & max
 		k.PS &= 0xFFF1
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if val == maxp {
@@ -908,7 +914,7 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := (-k.memread(da, l)) & max
 		k.PS &= 0xFFF0
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if val == 0 {
@@ -926,7 +932,7 @@ func (k *KB11) step() {
 		val := k.memread(da, l)
 		if k.PS&FLAGC == FLAGC {
 			k.PS &= 0xFFF0
-			if (val+1)&msb != 0 {
+			if (val+1)&msb == msb {
 				k.PS |= FLAGN
 			}
 			if val == max {
@@ -941,7 +947,7 @@ func (k *KB11) step() {
 			k.memwrite(da, l, (val+1)&max)
 		} else {
 			k.PS &= 0xFFF0
-			if val&msb != 0 {
+			if val&msb == msb {
 				k.PS |= FLAGN
 			}
 			if val == 0 {
@@ -954,7 +960,7 @@ func (k *KB11) step() {
 		val := k.memread(da, l)
 		if k.PS&FLAGC == FLAGC {
 			k.PS &= 0xFFF0
-			if (val-1)&msb != 0 {
+			if (val-1)&msb == msb {
 				k.PS |= FLAGN
 			}
 			if val == 1 {
@@ -969,7 +975,7 @@ func (k *KB11) step() {
 			k.memwrite(da, l, (val-1)&max)
 		} else {
 			k.PS &= 0xFFF0
-			if val&msb != 0 {
+			if val&msb == msb {
 				k.PS |= FLAGN
 			}
 			if val == 0 {
@@ -985,7 +991,7 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if val == 0 {
@@ -1024,7 +1030,7 @@ func (k *KB11) step() {
 		if val&(max+1) != 0 {
 			k.PS |= FLAGC
 		}
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if !(val&max != 0) {
@@ -1040,10 +1046,10 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
-		if val&1 != 0 {
+		if val&1 == 1 {
 			k.PS |= FLAGC
 		}
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGN
 		}
 		if xor(val&msb, val&1) != 0 {
@@ -1059,7 +1065,7 @@ func (k *KB11) step() {
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
-		if val&msb != 0 {
+		if val&msb == msb {
 			k.PS |= FLAGC
 		}
 		if val&(msb>>1) != 0 {
@@ -1088,6 +1094,7 @@ func (k *KB11) step() {
 	case 0000100: // JMP
 		val := k.aget(d, 2)
 		if val < 0 {
+			panic("whoa!")
 			break
 		}
 		k.R[7] = val
@@ -1113,18 +1120,21 @@ func (k *KB11) step() {
 	case 0006500: // MFPI
 		var val int
 		da := k.aget(d, 2)
-		if da == -7 {
+		switch {
+		case da == -7:
+			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 			if curuser == prevuser {
 				val = k.R[6]
-			} else if prevuser {
-				val = k.USP
 			} else {
-				val = k.KSP
+				if prevuser {
+					val = k.USP
+				} else {
+					val = k.KSP
+				}
 			}
-			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
-		} else if da < 0 {
+		case da < 0:
 			panic("invalid MFPI instruction")
-		} else {
+		default:
 			val = k.physread16(k.decode(da, false, prevuser))
 		}
 		k.push(val)
@@ -1133,24 +1143,27 @@ func (k *KB11) step() {
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if val&0x8000 != 0 {
+		if val&0x8000 == 0x800 {
 			k.PS |= FLAGN
 		}
 		return
 	case 0006600: // MTPI
 		da := k.aget(d, 2)
 		val := k.pop()
-		if da == -7 {
+		switch {
+		case da == -7:
 			if curuser == prevuser {
 				k.R[6] = val
-			} else if prevuser {
-				k.USP = val
 			} else {
-				k.KSP = val
+				if prevuser {
+					k.USP = val
+				} else {
+					k.KSP = val
+				}
 			}
-		} else if da < 0 {
+		case da < 0:
 			panic("invalid MTPI instrution")
-		} else {
+		default:
 			sa := k.decode(da, true, prevuser)
 			k.physwrite16(sa, val)
 		}
@@ -1159,7 +1172,7 @@ func (k *KB11) step() {
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if val&0x8000 != 0 {
+		if val&0x8000 == 0x8000 {
 			k.PS |= FLAGN
 		}
 		return
@@ -1246,13 +1259,14 @@ func (k *KB11) step() {
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
 		var vec, prev int
-		if (instr & 0177400) == 0104000 {
+		switch {
+		case (instr & 0177400) == 0104000:
 			vec = 030
-		} else if (instr & 0177400) == 0104400 {
+		case (instr & 0177400) == 0104400:
 			vec = 034
-		} else if instr == 3 {
+		case instr == 3:
 			vec = 014
-		} else {
+		default:
 			vec = 020
 		}
 		prev = k.PS
