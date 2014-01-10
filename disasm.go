@@ -69,7 +69,7 @@ var disasmtable = []D{
 	{0177777, 0000004, "IOT", "", false},
 }
 
-func disasmaddr(m uint16, a int) string {
+func disasmaddr(m uint16, a uint18) string {
 	if (m & 7) == 7 {
 		switch m {
 		case 027:
@@ -80,9 +80,9 @@ func disasmaddr(m uint16, a int) string {
 			return fmt.Sprintf("*%06o", memory[a>>1])
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a+2+int(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("*%06o", (a+2+uint18(memory[a>>1]))&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%06o", (a+2+int(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("**%06o", (a+2+uint18(memory[a>>1]))&0xFFFF)
 		}
 	}
 	r := rs[m&7]
@@ -109,7 +109,7 @@ func disasmaddr(m uint16, a int) string {
 	panic(fmt.Sprintf("disasmaddr: unknown addressing mode, register %v, mode %o", r, m&070))
 }
 
-func disasm(a int) string {
+func disasm(a uint18) string {
 	ins := memory[a>>1]
 	msg := "???"
 	var l D

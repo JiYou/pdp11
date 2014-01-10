@@ -18,7 +18,7 @@ type RK05 struct {
 	rkdisk                                                                []byte // rk0 disk image
 }
 
-func (r *RK05) rkread16(a int) int {
+func (r *RK05) rkread16(a uint18) int {
 	switch a {
 	case 0777400:
 		return r.RKDS
@@ -140,7 +140,7 @@ func (r *RK05) rkgo() {
 	}
 }
 
-func (r *RK05) rkwrite16(a, v int) {
+func (r *RK05) rkwrite16(a uint18, v int) {
 	switch a {
 	//	case 0777400:
 	//		break

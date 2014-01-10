@@ -81,7 +81,7 @@ func (c *Console) Step(k *KB11) {
 	}
 }
 
-func (c *Console) consread16(a int) int {
+func (c *Console) consread16(a uint18) int {
 	switch a {
 	case 0777560:
 		return c.TKS
@@ -96,7 +96,7 @@ func (c *Console) consread16(a int) int {
 	}
 }
 
-func (c *Console) conswrite16(a, v int) {
+func (c *Console) conswrite16(a uint18, v int) {
 	switch a {
 	case 0777560:
 		if v&(1<<6) != 0 {

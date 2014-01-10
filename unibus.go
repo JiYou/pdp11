@@ -9,7 +9,10 @@ type Unibus struct {
 	cons *Console
 }
 
-func (u *Unibus) physread16(a int) uint16 {
+// uint18 represents a unibus 18 bit physical address
+type uint18 uint32
+
+func (u *Unibus) physread16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
@@ -38,15 +41,15 @@ func (u *Unibus) physread16(a int) uint16 {
 	}
 }
 
-func (u *Unibus) physread8(a int) uint16 {
-	val := u.physread16(a & ^1)
+func (u *Unibus) physread8(a uint18) uint16 {
+	val := u.physread16(a & ^uint18(1))
 	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
 }
 
-func (u *Unibus) physwrite8(a int, v uint16) {
+func (u *Unibus) physwrite8(a uint18, v uint16) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
@@ -64,7 +67,7 @@ func (u *Unibus) physwrite8(a int, v uint16) {
 	}
 }
 
-func (u *Unibus) physwrite16(a int, v uint16) {
+func (u *Unibus) physwrite16(a uint18, v uint16) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}

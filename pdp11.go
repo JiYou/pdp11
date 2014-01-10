@@ -106,10 +106,10 @@ func (k *KB11) switchmode(newm bool) {
 	}
 }
 
-func (k *KB11) decode(a uint16, w, user bool) int {
+func (k *KB11) decode(a uint16, w, user bool) uint18 {
 	var p page
 	if !(k.SR0&1 == 1) {
-		if a := int(a); a >= 0170000 {
+		if a := uint18(a); a >= 0170000 {
 			a += 0600000
 			return a
 		} else {
@@ -140,7 +140,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block := a >> 6 & 0177
-	disp := int(a & 077)
+	disp := uint18(a & 077)
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
@@ -154,7 +154,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return (int(block+p.addr) << 6) + disp
+	return (uint18(block+p.addr) << 6) + disp
 }
 
 func (k *KB11) read8(a uint16) uint16 {
