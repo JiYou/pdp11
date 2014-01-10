@@ -1,6 +1,6 @@
 package pdp11
 
-var memory [128 * 1024]int // word addressing
+var memory [128 * 1024]uint16 // word addressing
 
 type Unibus struct {
 	LKS  uint16
@@ -14,9 +14,9 @@ func (u *Unibus) physread16(a int) uint16 {
 	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	case a < 0760000:
-		return uint16(memory[a>>1])
+		return memory[a>>1]
 	case a == 0777546:
-		return uint16(u.LKS)
+		return u.LKS
 	case a == 0777570:
 		return 0173030
 	case a == 0777572:
@@ -50,10 +50,10 @@ func (u *Unibus) physwrite8(a int, v uint16) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
-			memory[a>>1] |= int(v&0xFF) << 8
+			memory[a>>1] |= v & 0xFF << 8
 		} else {
 			memory[a>>1] &= 0xFF00
-			memory[a>>1] |= int(v) & 0xFF
+			memory[a>>1] |= v & 0xFF
 		}
 	} else {
 		if a&1 == 1 {
@@ -69,7 +69,7 @@ func (u *Unibus) physwrite16(a int, v uint16) {
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}
 	if a < 0760000 {
-		memory[a>>1] = int(v)
+		memory[a>>1] = v
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:

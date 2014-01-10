@@ -5,7 +5,7 @@ import "fmt"
 var rs = [...]string{"R0", "R1", "R2", "R3", "R4", "R5", "SP", "PC"}
 
 type D struct {
-	inst, arg int
+	inst, arg uint16
 	msg       string
 	flag      string
 	b         bool
@@ -69,7 +69,7 @@ var disasmtable = []D{
 	{0177777, 0000004, "IOT", "", false},
 }
 
-func disasmaddr(m, a int) string {
+func disasmaddr(m uint16, a int) string {
 	if (m & 7) == 7 {
 		switch m {
 		case 027:
@@ -80,9 +80,9 @@ func disasmaddr(m, a int) string {
 			return fmt.Sprintf("*%06o", memory[a>>1])
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a+2+memory[a>>1])&0xFFFF)
+			return fmt.Sprintf("*%06o", (a+2+int(memory[a>>1]))&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%06o", (a+2+memory[a>>1])&0xFFFF)
+			return fmt.Sprintf("**%06o", (a+2+int(memory[a>>1]))&0xFFFF)
 		}
 	}
 	r := rs[m&7]

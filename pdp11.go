@@ -333,8 +333,8 @@ func (k *KB11) handleinterrupt(vec int) {
 		default:
 			panic(trap)
 		}
-		k.R[7] = memory[vec>>1]
-		k.PS = uint16(memory[(vec>>1)+1])
+		k.R[7] = int(memory[vec>>1])
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -353,8 +353,8 @@ func (k *KB11) trapat(vec int, msg string) {
 		switch t := t.(type) {
 		case trap:
 			writedebug("red stack trap!\n")
-			memory[0] = k.R[7]
-			memory[1] = int(prev)
+			memory[0] = uint16(k.R[7])
+			memory[1] = prev
 			vec = 4
 			panic("fatal")
 		case nil:
@@ -362,8 +362,8 @@ func (k *KB11) trapat(vec int, msg string) {
 		default:
 			panic(t)
 		}
-		k.R[7] = memory[vec>>1]
-		k.PS = uint16(memory[(vec>>1)+1])
+		k.R[7] = int(memory[vec>>1])
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -1175,8 +1175,8 @@ func (k *KB11) step() {
 		k.switchmode(false)
 		k.push(prev)
 		k.push(uint16(k.R[7]))
-		k.R[7] = memory[vec>>1]
-		k.PS = uint16(memory[(vec>>1)+1])
+		k.R[7] = int(memory[vec>>1])
+		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -1248,7 +1248,7 @@ func (k *KB11) Reset() {
 		memory[i] = 0
 	}
 	for i := 0; i < len(bootrom); i++ {
-		memory[01000+i] = int(bootrom[i])
+		memory[01000+i] = bootrom[i]
 	}
 	for i := 0; i < 16; i++ {
 		pages[i] = createpage(0, 0)
