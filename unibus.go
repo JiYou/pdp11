@@ -39,27 +39,27 @@ func (u *Unibus) physread16(a int) uint16 {
 }
 
 func (u *Unibus) physread8(a int) uint16 {
-	val := uint16(u.physread16(a & ^1))
+	val := u.physread16(a & ^1)
 	if a&1 != 0 {
 		return val >> 8
 	}
 	return val & 0xFF
 }
 
-func (u *Unibus) physwrite8(a, v int) {
+func (u *Unibus) physwrite8(a int, v uint16) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			memory[a>>1] &= 0xFF
-			memory[a>>1] |= (v & 0xFF) << 8
+			memory[a>>1] |= int(v&0xFF) << 8
 		} else {
 			memory[a>>1] &= 0xFF00
-			memory[a>>1] |= v & 0xFF
+			memory[a>>1] |= int(v) & 0xFF
 		}
 	} else {
 		if a&1 == 1 {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|uint16(v&0xFF)<<8)
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|uint16(v&0xFF))
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }
