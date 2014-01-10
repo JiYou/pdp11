@@ -115,14 +115,15 @@ func (k *KB11) switchmode(newm bool) {
 	}
 }
 
-func (k *KB11) decode(a int, w, user bool) int {
+func (k *KB11) decode(a uint16, w, user bool) int {
 	var p page
-	var block, disp int
 	if !(k.SR0&1 == 1) {
-		if a >= 0170000 {
+		if a := int(a); a >= 0170000 {
 			a += 0600000
+			return a
+		} else {
+			return a
 		}
-		return a
 	}
 	if user {
 		p = pages[(a>>13)+8]
@@ -131,7 +132,7 @@ func (k *KB11) decode(a int, w, user bool) int {
 	}
 	if w && !p.write {
 		k.SR0 = (1 << 13) | 1
-		k.SR0 |= uint16(a >> 12) & ^uint16(1)
+		k.SR0 |= uint16(a>>12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -140,19 +141,19 @@ func (k *KB11) decode(a int, w, user bool) int {
 	}
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
-		k.SR0 |= uint16(a >> 12) & ^uint16(1)
+		k.SR0 |= uint16(a>>12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
-	block = a >> 6 & 0177
-	disp = a & 077
+	block := int(a >> 6 & 0177)
+	disp := int(a & 077)
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
-		k.SR0 |= uint16(a >> 12) & ^uint16(1)
+		k.SR0 |= uint16(a>>12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -216,19 +217,19 @@ func mmuwrite16(a, v int) {
 }
 
 func (k *KB11) read8(a int) int {
-	return k.unibus.physread8(k.decode(a, false, curuser))
+	return k.unibus.physread8(k.decode(uint16(a), false, curuser))
 }
 
 func (k *KB11) read16(a int) int {
-	return k.unibus.physread16(k.decode(a, false, curuser))
+	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
 }
 
-func (k *KB11) write8(a, v int) {
-	k.unibus.physwrite8(k.decode(a, true, curuser), v)
+func (k *KB11) write8(a int, v int) {
+	k.unibus.physwrite8(k.decode(uint16(a), true, curuser), v)
 }
 
-func (k *KB11) write16(a, v int) {
-	k.unibus.physwrite16(k.decode(a, true, curuser), v)
+func (k *KB11) write16(a int, v int) {
+	k.unibus.physwrite16(k.decode(uint16(a), true, curuser), v)
 }
 
 func (k *KB11) fetch16() int {
@@ -287,7 +288,7 @@ func (k *KB11) printstate() {
 		writedebug(" ")
 	}
 	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(k.instr, 6) + "   ")
-	writedebug(disasm(k.decode(int(k.PC), false, curuser)))
+	writedebug(disasm(k.decode(k.PC, false, curuser)))
 	writedebug("\n")
 }
 
@@ -463,7 +464,7 @@ func (k *KB11) step() {
 		return
 	}
 	k.PC = uint16(k.R[7])
-	ia := k.decode(k.R[7], false, curuser)
+	ia := k.decode(k.PC, false, curuser)
 	k.R[7] += 2
 	k.instr = k.unibus.physread16(ia)
 	if pr {
@@ -1038,7 +1039,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MFPI instruction")
 		default:
-			val = k.unibus.physread16(k.decode(da, false, prevuser))
+			val = k.unibus.physread16(k.decode(uint16(da), false, prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
@@ -1067,7 +1068,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MTPI instrution")
 		default:
-			sa := k.decode(da, true, prevuser)
+			sa := k.decode(uint16(da), true, prevuser)
 			k.unibus.physwrite16(sa, val)
 		}
 		k.PS &= 0xFFF0
