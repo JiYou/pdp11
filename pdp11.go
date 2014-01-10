@@ -215,11 +215,11 @@ func mmuwrite16(a, v int) {
 	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 }
 
-func (k *KB11) read8(a int) int {
+func (k *KB11) read8(a int) uint16 {
 	return k.unibus.physread8(k.decode(uint16(a), false, curuser))
 }
 
-func (k *KB11) read16(a int) int {
+func (k *KB11) read16(a int) uint16 {
 	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
 }
 
@@ -234,7 +234,7 @@ func (k *KB11) write16(a int, v int) {
 func (k *KB11) fetch16() int {
 	val := k.read16(k.R[7])
 	k.R[7] += 2
-	return val
+	return int(val)
 }
 
 func (k *KB11) push(v int) {
@@ -245,7 +245,7 @@ func (k *KB11) push(v int) {
 func (k *KB11) pop() int {
 	val := k.read16(k.R[6])
 	k.R[6] += 2
-	return val
+	return int(val)
 }
 
 func ostr(z interface{}, n int) string {
@@ -381,7 +381,7 @@ func (k *KB11) trapat(vec int, msg string) {
 	k.push(k.R[7])
 }
 
-func (k *KB11) aget(v, l int) int {
+func (k *KB11) aget(v int, l int) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
@@ -405,7 +405,7 @@ func (k *KB11) aget(v, l int) int {
 	}
 	addr &= 0xFFFF
 	if v&010 != 0 {
-		addr = k.read16(addr)
+		addr = int(k.read16(addr))
 	}
 	return addr
 }
@@ -420,9 +420,9 @@ func (k *KB11) memread(a, l int) int {
 		}
 	}
 	if l == 2 {
-		return k.read16(a)
+		return int(k.read16(a))
 	}
-	return k.read8(a)
+	return int(k.read8(a))
 }
 
 func (k *KB11) memwrite(a, l, v int) {
@@ -468,7 +468,7 @@ func (k *KB11) step() {
 	if pr {
 		k.printstate()
 	}
-	instr := k.unibus.physread16(ia)
+	instr := int(k.unibus.physread16(ia))
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
@@ -1020,18 +1020,18 @@ func (k *KB11) step() {
 		k.R[5] = k.pop()
 		break
 	case 0006500: // MFPI
-		var val int
+		var val uint16
 		da := k.aget(d, 2)
 		switch {
 		case da == -7:
 			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 			if curuser == prevuser {
-				val = k.R[6]
+				val = uint16(k.R[6])
 			} else {
 				if prevuser {
-					val = int(k.USP)
+					val = k.USP
 				} else {
-					val = int(k.KSP)
+					val = k.KSP
 				}
 			}
 		case da < 0:
@@ -1039,7 +1039,7 @@ func (k *KB11) step() {
 		default:
 			val = k.unibus.physread16(k.decode(uint16(da), false, prevuser))
 		}
-		k.push(val)
+		k.push(int(val))
 		k.PS &= 0xFFF0
 		k.PS |= FLAGC
 		if val == 0 {

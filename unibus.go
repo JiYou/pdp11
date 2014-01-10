@@ -9,28 +9,28 @@ type Unibus struct {
 	cons *Console
 }
 
-func (u *Unibus) physread16(a int) int {
+func (u *Unibus) physread16(a int) uint16 {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
 	case a < 0760000:
-		return memory[a>>1]
+		return uint16(memory[a>>1])
 	case a == 0777546:
-		return u.LKS
+		return uint16(u.LKS)
 	case a == 0777570:
 		return 0173030
 	case a == 0777572:
-		return int(u.cpu.SR0)
+		return u.cpu.SR0
 	case a == 0777576:
-		return int(u.cpu.SR2)
+		return u.cpu.SR2
 	case a == 0777776:
-		return int(u.cpu.PS)
+		return u.cpu.PS
 	case a&0777770 == 0777560:
-		return u.cons.consread16(a)
+		return uint16(u.cons.consread16(a))
 	case a&0777760 == 0777400:
-		return u.rk.rkread16(a)
+		return uint16(u.rk.rkread16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
-		return mmuread16(a)
+		return uint16(mmuread16(a))
 	case a == 0776000:
 		panic("lolwut")
 	default:
@@ -38,8 +38,8 @@ func (u *Unibus) physread16(a int) int {
 	}
 }
 
-func (u *Unibus) physread8(a int) int {
-	val := u.physread16(a & ^1)
+func (u *Unibus) physread8(a int) uint16 {
+	val := uint16(u.physread16(a & ^1))
 	if a&1 != 0 {
 		return val >> 8
 	}
@@ -57,9 +57,9 @@ func (u *Unibus) physwrite8(a, v int) {
 		}
 	} else {
 		if a&1 == 1 {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|(v&0xFF)<<8)
+			u.physwrite16(a&^1, int(u.physread16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|(v&0xFF))
+			u.physwrite16(a&^1, int(u.physread16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }
