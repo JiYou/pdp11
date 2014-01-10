@@ -59,7 +59,7 @@ func (c *Console) getchar() int {
 }
 
 func (c *Console) Step(k *KB11) {
-	if c.TKS&1<<6 == 0 {
+	if c.ready {
 		select {
 		case v, ok := <-c.Input:
 			if ok {

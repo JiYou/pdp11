@@ -228,7 +228,7 @@ func (k *KB11) write8(a int, v int) {
 }
 
 func (k *KB11) write16(a int, v int) {
-	k.unibus.physwrite16(k.decode(uint16(a), true, curuser), v)
+	k.unibus.physwrite16(k.decode(uint16(a), true, curuser), uint16(v))
 }
 
 func (k *KB11) fetch16() int {
@@ -1051,16 +1051,16 @@ func (k *KB11) step() {
 		return
 	case 0006600: // MTPI
 		da := k.aget(d, 2)
-		val := k.pop()
+		val := uint16(k.pop())
 		switch {
 		case da == -7:
 			if curuser == prevuser {
-				k.R[6] = val
+				k.R[6] = int(val)
 			} else {
 				if prevuser {
-					k.USP = uint16(val)
+					k.USP = val
 				} else {
-					k.KSP = uint16(val)
+					k.KSP = val
 				}
 			}
 		case da < 0:
@@ -1210,10 +1210,10 @@ func (k *KB11) step() {
 		fallthrough
 	case 0000006: // RTT
 		k.R[7] = k.pop()
-		val := k.pop()
+		val := uint16(k.pop())
 		if curuser {
 			val &= 047
-			val |= int(k.PS) & 0177730
+			val |= k.PS & 0177730
 		}
 		k.unibus.physwrite16(0777776, val)
 		return

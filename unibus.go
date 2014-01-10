@@ -3,7 +3,7 @@ package pdp11
 var memory [128 * 1024]int // word addressing
 
 type Unibus struct {
-	LKS  int
+	LKS  uint16
 	cpu  *KB11
 	rk   *RK05 // drive 0
 	cons *Console
@@ -57,19 +57,19 @@ func (u *Unibus) physwrite8(a, v int) {
 		}
 	} else {
 		if a&1 == 1 {
-			u.physwrite16(a&^1, int(u.physread16(a)&0xFF)|(v&0xFF)<<8)
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|uint16(v&0xFF)<<8)
 		} else {
-			u.physwrite16(a&^1, int(u.physread16(a)&0xFF00)|(v&0xFF))
+			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|uint16(v&0xFF))
 		}
 	}
 }
 
-func (u *Unibus) physwrite16(a, v int) {
+func (u *Unibus) physwrite16(a int, v uint16) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
 	}
 	if a < 0760000 {
-		memory[a>>1] = v
+		memory[a>>1] = int(v)
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:
@@ -91,17 +91,17 @@ func (u *Unibus) physwrite16(a, v int) {
 		default:
 			panic("invalid mode")
 		}
-		u.cpu.PS = uint16(v)
+		u.cpu.PS = v
 	} else if a == 0777546 {
 		u.LKS = v
 	} else if a == 0777572 {
-		u.cpu.SR0 = uint16(v)
+		u.cpu.SR0 = v
 	} else if (a & 0777770) == 0777560 {
-		u.cons.conswrite16(a, v)
+		u.cons.conswrite16(a, int(v))
 	} else if (a & 0777700) == 0777400 {
-		u.rk.rkwrite16(a, v)
+		u.rk.rkwrite16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
-		mmuwrite16(a, v)
+		mmuwrite16(a, int(v))
 	} else {
 		panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 	}
