@@ -73,6 +73,13 @@ func xor16(x, y uint16) uint16 {
 	return z
 }
 
+func xor32(x, y uint32) uint32 {
+	a := x & y
+	b := ^x & ^y
+	z := ^a & ^b
+	return z
+}
+
 type KB11 struct {
 	R        [8]uint16 // registers
 	PS       uint16    // processor status
@@ -654,11 +661,11 @@ func (k *KB11) step() {
 		}
 		return
 	case 0073000: // ASHC
-		val1 := int(k.R[s&7]<<16) | int(k.R[(s&7)|1])
+		val1 := uint32(k.R[s&7]<<16) | uint32(k.R[(s&7)|1])
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2) & 077
 		k.PS &= 0xFFF0
-		var val int
+		var val uint32
 		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
 			if val1&0x80000000 == 0x8000000 {
@@ -684,7 +691,7 @@ func (k *KB11) step() {
 		if val&0x80000000 != 0 {
 			k.PS |= FLAGN
 		}
-		if xor(val&0x80000000, val1&0x80000000) != 0 {
+		if xor32(val&0x80000000, val1&0x80000000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
