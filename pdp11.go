@@ -86,7 +86,7 @@ type KB11 struct {
 	PS       uint16 // processor status
 	PC       uint16 // address of current instruction
 	KSP, USP uint16 // kernel and user stack pointer
-	SR0, SR2 int
+	SR0, SR2 uint16
 	instr    int // current instruction
 
 	Input  chan uint8
@@ -131,20 +131,20 @@ func (k *KB11) decode(a int, w, user bool) int {
 	}
 	if w && !p.write {
 		k.SR0 = (1 << 13) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= uint16(a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = int(k.PC)
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
 	}
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= uint16(a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = int(k.PC)
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
 	block = a >> 6 & 0177
@@ -152,11 +152,11 @@ func (k *KB11) decode(a int, w, user bool) int {
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= uint16(a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
-		k.SR2 = int(k.PC)
+		k.SR2 = k.PC
 		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
 	}
 	if w {
@@ -453,6 +453,13 @@ func (k *KB11) branch(o int) {
 func (k *KB11) step() {
 	var max, maxp, msb int
 	if waiting {
+		select {
+		case v, ok := <-k.unibus.cons.Input:
+			if ok {
+				k.unibus.cons.addchar(int(v))
+			}
+		default:
+		}
 		return
 	}
 	k.PC = uint16(k.R[7])

@@ -20,9 +20,9 @@ func (u *Unibus) physread16(a int) int {
 	case a == 0777570:
 		return 0173030
 	case a == 0777572:
-		return u.cpu.SR0
+		return int(u.cpu.SR0)
 	case a == 0777576:
-		return u.cpu.SR2
+		return int(u.cpu.SR2)
 	case a == 0777776:
 		return int(u.cpu.PS)
 	case a&0777770 == 0777560:
@@ -95,7 +95,7 @@ func (u *Unibus) physwrite16(a, v int) {
 	} else if a == 0777546 {
 		u.LKS = v
 	} else if a == 0777572 {
-		u.cpu.SR0 = v
+		u.cpu.SR0 = uint16(v)
 	} else if (a & 0777770) == 0777560 {
 		u.cons.conswrite16(a, v)
 	} else if (a & 0777700) == 0777400 {

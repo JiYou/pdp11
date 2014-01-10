@@ -43,6 +43,7 @@ func (c *Console) addchar(char int) {
 		c.TKB = char
 	}
 	c.TKS |= 0x80
+	c.ready = false
 	if c.TKS&(1<<6) != 0 {
 		interrupt(INTTTYIN, 4)
 	}
@@ -58,12 +59,11 @@ func (c *Console) getchar() int {
 }
 
 func (c *Console) Step(k *KB11) {
-	if c.ready {
+	if c.TKS & 1 << 6 == 0 {
 		select {
 		case v, ok := <-c.Input:
 			if ok {
 				c.addchar(int(v))
-				c.ready = false
 			}
 		default:
 		}
