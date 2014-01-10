@@ -73,18 +73,11 @@ func xor16(x, y uint16) uint16 {
 	return z
 }
 
-func xor32(x, y uint32) uint32 {
-	a := x & y
-	b := ^x & ^y
-	z := ^a & ^b
-	return z
-}
-
 type KB11 struct {
-	R        [8]uint16 // registers
-	PS       uint16    // processor status
-	PC       uint16    // address of current instruction
-	KSP, USP uint16    // kernel and user stack pointer
+	R        [8]int // registers
+	PS       uint16 // processor status
+	PC       uint16 // address of current instruction
+	KSP, USP uint16 // kernel and user stack pointer
 	SR0, SR2 uint16
 
 	Input  chan uint8
@@ -95,14 +88,14 @@ func (k *KB11) switchmode(newm bool) {
 	prevuser = curuser
 	curuser = newm
 	if prevuser {
-		k.USP = k.R[6]
+		k.USP = uint16(k.R[6])
 	} else {
-		k.KSP = k.R[6]
+		k.KSP = uint16(k.R[6])
 	}
 	if curuser {
-		k.R[6] = k.USP
+		k.R[6] = int(k.USP)
 	} else {
-		k.R[6] = k.KSP
+		k.R[6] = int(k.KSP)
 	}
 	k.PS &= 0007777
 	if curuser {
@@ -169,7 +162,7 @@ func (k *KB11) read8(a uint16) uint16 {
 }
 
 func (k *KB11) read16(a uint16) uint16 {
-	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
+	return k.unibus.physread16(k.decode(a, false, curuser))
 }
 
 func (k *KB11) write8(a, v uint16) {
@@ -181,18 +174,18 @@ func (k *KB11) write16(a, v uint16) {
 }
 
 func (k *KB11) fetch16() uint16 {
-	val := k.read16(k.R[7])
+	val := k.read16(uint16(k.R[7]))
 	k.R[7] += 2
 	return val
 }
 
 func (k *KB11) push(v uint16) {
 	k.R[6] -= 2
-	k.write16(k.R[6], v)
+	k.write16(uint16(k.R[6]), v)
 }
 
 func (k *KB11) pop() uint16 {
-	val := k.read16(k.R[6])
+	val := k.read16(uint16(k.R[6]))
 	k.R[6] += 2
 	return val
 }
@@ -282,7 +275,7 @@ func (k *KB11) handleinterrupt(vec int) {
 		default:
 			panic(trap)
 		}
-		k.R[7] = memory[vec>>1]
+		k.R[7] = int(memory[vec>>1])
 		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
@@ -292,7 +285,7 @@ func (k *KB11) handleinterrupt(vec int) {
 	prev := k.PS
 	k.switchmode(false)
 	k.push(prev)
-	k.push(k.R[7])
+	k.push(uint16(k.R[7]))
 }
 
 func (k *KB11) trapat(vec int, msg string) {
@@ -302,7 +295,7 @@ func (k *KB11) trapat(vec int, msg string) {
 		switch t := t.(type) {
 		case trap:
 			writedebug("red stack trap!\n")
-			memory[0] = k.R[7]
+			memory[0] = uint16(k.R[7])
 			memory[1] = prev
 			vec = 4
 			panic("fatal")
@@ -311,7 +304,7 @@ func (k *KB11) trapat(vec int, msg string) {
 		default:
 			panic(t)
 		}
-		k.R[7] = memory[vec>>1]
+		k.R[7] = int(memory[vec>>1])
 		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
@@ -327,49 +320,45 @@ func (k *KB11) trapat(vec int, msg string) {
 	prev = k.PS
 	k.switchmode(false)
 	k.push(prev)
-	k.push(k.R[7])
+	k.push(uint16(k.R[7]))
 }
 
-// regaddr represents a memory address, or
-// register depending on the encoding
-type regaddr int32
-
-func (k *KB11) aget(v uint16, l uint16) regaddr {
+func (k *KB11) aget(v int, l int) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -regaddr(v + 1)
+		return -(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
 	case 000:
 		v &= 7
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 	case 020:
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 		k.R[v&7] += l
 	case 040:
 		k.R[v&7] -= l
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 	case 060:
 		addr = k.fetch16()
-		addr += k.R[v&7]
+		addr += uint16(k.R[v&7])
 	}
 	addr &= 0xFFFF
 	if v&010 != 0 {
 		addr = k.read16(addr)
 	}
-	return regaddr(addr)
+	return int(addr)
 }
 
-func (k *KB11) memread(a regaddr, l uint16) uint16 {
+func (k *KB11) memread(a, l int) uint16 {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
-			return k.R[r&7]
+			return uint16(k.R[r&7])
 		} else {
-			return k.R[r&7] & 0xFF
+			return uint16(k.R[r&7]) & 0xFF
 		}
 	}
 	if l == 2 {
@@ -378,14 +367,14 @@ func (k *KB11) memread(a regaddr, l uint16) uint16 {
 	return k.read8(uint16(a))
 }
 
-func (k *KB11) memwrite(a regaddr, l, v uint16) {
+func (k *KB11) memwrite(a, l int, v uint16) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
-			k.R[r&7] = v
+			k.R[r&7] = int(v)
 		} else {
 			k.R[r&7] &= 0xFF00
-			k.R[r&7] |= v
+			k.R[r&7] |= int(v)
 		}
 	} else if l == 2 {
 		k.write16(uint16(a), v)
@@ -400,7 +389,7 @@ func (k *KB11) branch(o int) {
 		o = -(((^o) + 1) & 0xFF)
 	}
 	o <<= 1
-	k.R[7] += uint16(o)
+	k.R[7] += o
 }
 
 func (k *KB11) step() {
@@ -415,17 +404,17 @@ func (k *KB11) step() {
 		}
 		return
 	}
-	k.PC = k.R[7]
+	k.PC = uint16(k.R[7])
 	ia := k.decode(k.PC, false, curuser)
 	k.R[7] += 2
 	if pr {
 		k.printstate()
 	}
-	instr := k.unibus.physread16(ia)
+	instr := int(k.unibus.physread16(ia))
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
-	o := int(instr) & 0xFF
+	o := instr & 0xFF
 	if l == 2 {
 		max = 0xFFFF
 		maxp = 0x7FFF
@@ -571,9 +560,9 @@ func (k *KB11) step() {
 		if val < 0 {
 			break
 		}
-		k.push(k.R[s&7])
+		k.push(uint16(k.R[s&7]))
 		k.R[s&7] = k.R[7]
-		k.R[7] = uint16(val)
+		k.R[7] = val
 		return
 	case 0070000: // MUL
 		val1 := k.R[s&7]
@@ -581,18 +570,18 @@ func (k *KB11) step() {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
 		da := k.aget(d, l)
-		val2 := k.memread(da, 2)
+		val2 := int(k.memread(da, 2))
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		val := uint32(val1) * uint32(val2)
-		k.R[s&7] = uint16((val & 0xFFFF0000) >> 16)
-		k.R[(s&7)|1] = uint16(val & 0xFFFF)
+		val := val1 * val2
+		k.R[s&7] = (val & 0xFFFF0000) >> 16
+		k.R[(s&7)|1] = val & 0xFFFF
 		k.PS &= 0xFFF0
-		if uint32(val)&0x80000000 == 0x80000000 {
+		if val&0x80000000 == 0x80000000 {
 			k.PS |= FLAGN
 		}
-		if uint32(val)&0xFFFFFFFF == 0 {
+		if val&0xFFFFFFFF == 0 {
 			k.PS |= FLAGZ
 		}
 		if val < (1<<15) || val >= ((1<<15)-1) {
@@ -600,9 +589,9 @@ func (k *KB11) step() {
 		}
 		return
 	case 0071000: // DIV
-		val1 := uint32(k.R[s&7]<<16) | uint32(k.R[(s&7)|1])
+		val1 := (k.R[s&7] << 16) | k.R[(s&7)|1]
 		da := k.aget(d, l)
-		val2 := uint32(k.memread(da, 2))
+		val2 := int(k.memread(da, 2))
 		k.PS &= 0xFFF0
 		if val2 == 0 {
 			k.PS |= FLAGC
@@ -612,8 +601,8 @@ func (k *KB11) step() {
 			k.PS |= FLAGV
 			return
 		}
-		k.R[s&7] = uint16((val1 / val2) & 0xFFFF)
-		k.R[(s&7)|1] = uint16((val1 % val2) & 0xFFFF)
+		k.R[s&7] = (val1 / val2) & 0xFFFF
+		k.R[(s&7)|1] = (val1 % val2) & 0xFFFF
 		if k.R[s&7] == 0 {
 			k.PS |= FLAGZ
 		}
@@ -627,9 +616,9 @@ func (k *KB11) step() {
 	case 0072000: // ASH
 		val1 := k.R[s&7]
 		da := k.aget(d, 2)
-		val2 := k.memread(da, 2) & 077
+		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
-		var val uint16
+		var val int
 		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
@@ -638,37 +627,37 @@ func (k *KB11) step() {
 			} else {
 				val = val1 >> val2
 			}
-			shift := uint16(1) << (val2 - 1)
+			shift := 1 << (val2 - 1)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
-			shift := uint16(1) << (16 - val2)
+			shift := 1 << (16 - val2)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = uint16(val)
+		k.R[s&7] = val
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
 		if val&0100000 == 0100000 {
 			k.PS |= FLAGN
 		}
-		if xor16(val&0100000, val1&0100000) != 0 {
+		if xor(val&0100000, val1&0100000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
-		val1 := uint32(k.R[s&7]<<16) | uint32(k.R[(s&7)|1])
+		val1 := k.R[s&7]<<16 | k.R[(s&7)|1]
 		da := k.aget(d, 2)
-		val2 := k.memread(da, 2) & 077
+		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
-		var val uint32
+		var val int
 		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
-			if val1&0x80000000 == 0x8000000 {
+			if val1&0x80000000 == 0x80000000 {
 				val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
 				val |= val1 >> val2
 			} else {
@@ -683,20 +672,20 @@ func (k *KB11) step() {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = uint16(val >> 16)
-		k.R[(s&7)|1] = uint16(val & 0xFFFF)
+		k.R[s&7] = (val >> 16) & 0xFFFF
+		k.R[(s&7)|1] = val & 0xFFFF
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
 		if val&0x80000000 != 0 {
 			k.PS |= FLAGN
 		}
-		if xor32(val&0x80000000, val1&0x80000000) != 0 {
+		if xor(val&0x80000000, val1&0x80000000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
 	case 0074000: // XOR
-		val1 := k.R[s&7]
+		val1 := uint16(k.R[s&7])
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := val1 ^ val2
@@ -714,7 +703,7 @@ func (k *KB11) step() {
 		if k.R[s&7] != 0 {
 			o &= 077
 			o <<= 1
-			k.R[7] -= uint16(o)
+			k.R[7] -= o
 		}
 		return
 	}
@@ -952,7 +941,7 @@ func (k *KB11) step() {
 			panic("whoa!")
 			break
 		}
-		k.R[7] = uint16(val)
+		k.R[7] = val
 		return
 	case 0000300: // SWAB
 		da := k.aget(d, l)
@@ -970,7 +959,7 @@ func (k *KB11) step() {
 	case 0006400: // MARK
 		k.R[6] = k.R[7] + (instr&077)<<1
 		k.R[7] = k.R[5]
-		k.R[5] = k.pop()
+		k.R[5] = int(k.pop())
 		break
 	case 0006500: // MFPI
 		var val uint16
@@ -979,7 +968,7 @@ func (k *KB11) step() {
 		case da == -7:
 			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 			if curuser == prevuser {
-				val = k.R[6]
+				val = uint16(k.R[6])
 			} else {
 				if prevuser {
 					val = k.USP
@@ -998,17 +987,17 @@ func (k *KB11) step() {
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if val&0x8000 == 0x800 {
+		if val&0x8000 == 0x8000 {
 			k.PS |= FLAGN
 		}
 		return
 	case 0006600: // MTPI
 		da := k.aget(d, 2)
-		val := k.pop()
+		val := uint16(k.pop())
 		switch {
 		case da == -7:
 			if curuser == prevuser {
-				k.R[6] = val
+				k.R[6] = int(val)
 			} else {
 				if prevuser {
 					k.USP = val
@@ -1034,7 +1023,7 @@ func (k *KB11) step() {
 	}
 	if (instr & 0177770) == 0000200 { // RTS
 		k.R[7] = k.R[d&7]
-		k.R[d&7] = k.pop()
+		k.R[d&7] = int(k.pop())
 		return
 	}
 	switch instr & 0177400 {
@@ -1113,7 +1102,7 @@ func (k *KB11) step() {
 		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
-		var vec uint16
+		var vec int
 		switch {
 		case (instr & 0177400) == 0104000:
 			vec = 030
@@ -1127,8 +1116,8 @@ func (k *KB11) step() {
 		prev := k.PS
 		k.switchmode(false)
 		k.push(prev)
-		k.push(k.R[7])
-		k.R[7] = memory[vec>>1]
+		k.push(uint16(k.R[7]))
+		k.R[7] = int(memory[vec>>1])
 		k.PS = memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
@@ -1137,9 +1126,9 @@ func (k *KB11) step() {
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			k.PS |= instr & 017
+			k.PS |= uint16(instr) & 017
 		} else {
-			k.PS &= ^(instr & 017)
+			k.PS &= ^(uint16(instr) & 017)
 		}
 		return
 	}
@@ -1162,7 +1151,7 @@ func (k *KB11) step() {
 	case 0000002: // RTI
 		fallthrough
 	case 0000006: // RTT
-		k.R[7] = k.pop()
+		k.R[7] = int(k.pop())
 		val := k.pop()
 		if curuser {
 			val &= 047
