@@ -219,7 +219,7 @@ func (k *KB11) read8(a uint16) uint16 {
 	return k.unibus.physread8(k.decode(a, false, curuser))
 }
 
-func (k *KB11) read16(a int) uint16 {
+func (k *KB11) read16(a uint16) uint16 {
 	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
 }
 
@@ -227,23 +227,23 @@ func (k *KB11) write8(a, v uint16) {
 	k.unibus.physwrite8(k.decode(a, true, curuser), v)
 }
 
-func (k *KB11) write16(a int, v uint16) {
-	k.unibus.physwrite16(k.decode(uint16(a), true, curuser), v)
+func (k *KB11) write16(a, v uint16) {
+	k.unibus.physwrite16(k.decode(a, true, curuser), v)
 }
 
 func (k *KB11) fetch16() uint16 {
-	val := k.read16(k.R[7])
+	val := k.read16(uint16(k.R[7]))
 	k.R[7] += 2
 	return val
 }
 
 func (k *KB11) push(v uint16) {
 	k.R[6] -= 2
-	k.write16(k.R[6], v)
+	k.write16(uint16(k.R[6]), v)
 }
 
 func (k *KB11) pop() uint16 {
-	val := k.read16(k.R[6])
+	val := k.read16(uint16(k.R[6]))
 	k.R[6] += 2
 	return val
 }
@@ -388,26 +388,26 @@ func (k *KB11) aget(v int, l int) int {
 	if (v & 070) == 000 {
 		return -(v + 1)
 	}
-	var addr int
+	var addr uint16
 	switch v & 060 {
 	case 000:
 		v &= 7
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 	case 020:
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 		k.R[v&7] += l
 	case 040:
 		k.R[v&7] -= l
-		addr = k.R[v&7]
+		addr = uint16(k.R[v&7])
 	case 060:
-		addr = int(k.fetch16())
-		addr += k.R[v&7]
+		addr = k.fetch16()
+		addr += uint16(k.R[v&7])
 	}
 	addr &= 0xFFFF
 	if v&010 != 0 {
-		addr = int(k.read16(addr))
+		addr = k.read16(addr)
 	}
-	return addr
+	return int(addr)
 }
 
 func (k *KB11) memread(a, l int) uint16 {
@@ -420,7 +420,7 @@ func (k *KB11) memread(a, l int) uint16 {
 		}
 	}
 	if l == 2 {
-		return k.read16(a)
+		return k.read16(uint16(a))
 	}
 	return k.read8(uint16(a))
 }
@@ -435,7 +435,7 @@ func (k *KB11) memwrite(a, l int, v uint16) {
 			k.R[r&7] |= int(v)
 		}
 	} else if l == 2 {
-		k.write16(a, v)
+		k.write16(uint16(a), v)
 	} else {
 		k.write8(uint16(a), v)
 	}
