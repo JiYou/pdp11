@@ -87,7 +87,6 @@ type KB11 struct {
 	PC       uint16 // address of current instruction
 	KSP, USP uint16 // kernel and user stack pointer
 	SR0, SR2 uint16
-	instr    int // current instruction
 
 	Input  chan uint8
 	unibus *Unibus
@@ -132,7 +131,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	}
 	if w && !p.write {
 		k.SR0 = (1 << 13) | 1
-		k.SR0 |= uint16(a>>12) & ^uint16(1)
+		k.SR0 |= a >> 12 & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -141,7 +140,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	}
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
-		k.SR0 |= uint16(a>>12) & ^uint16(1)
+		k.SR0 |= (a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -153,7 +152,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
-		k.SR0 |= uint16(a>>12) & ^uint16(1)
+		k.SR0 |= (a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -287,9 +286,9 @@ func (k *KB11) printstate() {
 	} else {
 		writedebug(" ")
 	}
-	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(k.instr, 6) + "   ")
-	writedebug(disasm(k.decode(k.PC, false, curuser)))
-	writedebug("\n")
+	ia := k.decode(k.PC, false, curuser)
+	instr := k.unibus.physread16(ia)
+	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(instr, 6) + "   " + disasm(ia) + "\n")
 }
 
 type trap struct {
@@ -466,11 +465,10 @@ func (k *KB11) step() {
 	k.PC = uint16(k.R[7])
 	ia := k.decode(k.PC, false, curuser)
 	k.R[7] += 2
-	k.instr = k.unibus.physread16(ia)
 	if pr {
 		k.printstate()
 	}
-	instr := k.instr
+	instr := k.unibus.physread16(ia)
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
