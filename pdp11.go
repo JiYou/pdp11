@@ -24,7 +24,7 @@ var pages [16]page
 
 type page struct {
 	par, pdr        int
-	addr, len       int
+	addr, len       uint16
 	read, write, ed bool
 }
 
@@ -148,7 +148,7 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 		k.SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
-	block := int(a >> 6 & 0177)
+	block := a >> 6 & 0177
 	disp := int(a & 077)
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
@@ -163,15 +163,15 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return ((block + p.addr) << 6) + disp
+	return (int(block+p.addr) << 6) + disp
 }
 
 func createpage(par, pdr int) page {
 	return page{
 		par:   par,
 		pdr:   pdr,
-		addr:  par & 07777,
-		len:   pdr >> 8 & 0x7F,
+		addr:  uint16(par & 07777),
+		len:   uint16(pdr >> 8 & 0x7F),
 		read:  (pdr & 2) == 2,
 		write: (pdr & 6) == 6,
 		ed:    (pdr & 8) == 8,
