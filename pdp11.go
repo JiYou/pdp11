@@ -576,16 +576,16 @@ func (k *KB11) step() {
 		k.R[7] = uint16(val)
 		return
 	case 0070000: // MUL
-		val1 := int(k.R[s&7])
+		val1 := k.R[s&7]
 		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
 		da := k.aget(d, l)
-		val2 := int(k.memread(da, 2))
+		val2 := k.memread(da, 2)
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		val := val1 * val2
+		val := uint32(int32(int16(val1)) * int32(int16(val2)))
 		k.R[s&7] = uint16((val & 0xFFFF0000) >> 16)
 		k.R[(s&7)|1] = uint16(val & 0xFFFF)
 		k.PS &= 0xFFF0
