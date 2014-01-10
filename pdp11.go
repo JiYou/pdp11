@@ -215,16 +215,16 @@ func mmuwrite16(a, v int) {
 	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 }
 
-func (k *KB11) read8(a int) uint16 {
-	return k.unibus.physread8(k.decode(uint16(a), false, curuser))
+func (k *KB11) read8(a uint16) uint16 {
+	return k.unibus.physread8(k.decode(a, false, curuser))
 }
 
 func (k *KB11) read16(a int) uint16 {
 	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
 }
 
-func (k *KB11) write8(a int, v uint16) {
-	k.unibus.physwrite8(k.decode(uint16(a), true, curuser), v)
+func (k *KB11) write8(a, v uint16) {
+	k.unibus.physwrite8(k.decode(a, true, curuser), v)
 }
 
 func (k *KB11) write16(a int, v uint16) {
@@ -242,10 +242,10 @@ func (k *KB11) push(v uint16) {
 	k.write16(k.R[6], v)
 }
 
-func (k *KB11) pop() int {
+func (k *KB11) pop() uint16 {
 	val := k.read16(k.R[6])
 	k.R[6] += 2
-	return int(val)
+	return val
 }
 
 func ostr(z interface{}, n int) string {
@@ -422,7 +422,7 @@ func (k *KB11) memread(a, l int) uint16 {
 	if l == 2 {
 		return k.read16(a)
 	}
-	return k.read8(a)
+	return k.read8(uint16(a))
 }
 
 func (k *KB11) memwrite(a, l int, v uint16) {
@@ -437,7 +437,7 @@ func (k *KB11) memwrite(a, l int, v uint16) {
 	} else if l == 2 {
 		k.write16(a, v)
 	} else {
-		k.write8(a, v)
+		k.write8(uint16(a), v)
 	}
 }
 
@@ -1017,7 +1017,7 @@ func (k *KB11) step() {
 	case 0006400: // MARK
 		k.R[6] = k.R[7] + (instr&077)<<1
 		k.R[7] = k.R[5]
-		k.R[5] = k.pop()
+		k.R[5] = int(k.pop())
 		break
 	case 0006500: // MFPI
 		var val uint16
@@ -1081,7 +1081,7 @@ func (k *KB11) step() {
 	}
 	if (instr & 0177770) == 0000200 { // RTS
 		k.R[7] = k.R[d&7]
-		k.R[d&7] = k.pop()
+		k.R[d&7] = int(k.pop())
 		return
 	}
 	switch instr & 0177400 {
@@ -1209,8 +1209,8 @@ func (k *KB11) step() {
 	case 0000002: // RTI
 		fallthrough
 	case 0000006: // RTT
-		k.R[7] = k.pop()
-		val := uint16(k.pop())
+		k.R[7] = int(k.pop())
+		val := k.pop()
 		if curuser {
 			val &= 047
 			val |= k.PS & 0177730
