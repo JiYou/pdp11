@@ -585,7 +585,6 @@ func (k *KB11) step() {
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		println(val1, val2)
 		val := uint32(val1) * uint32(val2)
 		k.R[s&7] = uint16((val & 0xFFFF0000) >> 16)
 		k.R[(s&7)|1] = uint16(val & 0xFFFF)
