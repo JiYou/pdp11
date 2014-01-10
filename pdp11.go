@@ -323,12 +323,16 @@ func (k *KB11) trapat(vec int, msg string) {
 	k.push(k.R[7])
 }
 
-func (k *KB11) aget(v uint16, l uint16) int {
+// regaddr represents a memory address, or
+// register depending on the encoding
+type regaddr int32
+
+func (k *KB11) aget(v uint16, l uint16) regaddr {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -int(v + 1)
+		return -regaddr(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
@@ -349,10 +353,10 @@ func (k *KB11) aget(v uint16, l uint16) int {
 	if v&010 != 0 {
 		addr = k.read16(addr)
 	}
-	return int(addr)
+	return regaddr(addr)
 }
 
-func (k *KB11) memread(a int, l uint16) uint16 {
+func (k *KB11) memread(a regaddr, l uint16) uint16 {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -367,7 +371,7 @@ func (k *KB11) memread(a int, l uint16) uint16 {
 	return k.read8(uint16(a))
 }
 
-func (k *KB11) memwrite(a int, l, v uint16) {
+func (k *KB11) memwrite(a regaddr, l, v uint16) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
