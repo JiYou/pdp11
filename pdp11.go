@@ -20,14 +20,6 @@ var (
 
 type intr struct{ vec, pri int }
 
-var pages [16]page
-
-type page struct {
-	par, pdr        int
-	addr, len       uint16
-	read, write, ed bool
-}
-
 // traps
 const (
 	INTBUS    = 0004
@@ -165,56 +157,6 @@ func (k *KB11) decode(a uint16, w, user bool) int {
 	return (int(block+p.addr) << 6) + disp
 }
 
-func createpage(par, pdr int) page {
-	return page{
-		par:   par,
-		pdr:   pdr,
-		addr:  uint16(par & 07777),
-		len:   uint16(pdr >> 8 & 0x7F),
-		read:  (pdr & 2) == 2,
-		write: (pdr & 6) == 6,
-		ed:    (pdr & 8) == 8,
-	}
-}
-
-func mmuread16(a int) int {
-	i := ((a & 017) >> 1)
-	if (a >= 0772300) && (a < 0772320) {
-		return pages[i].pdr
-	}
-	if (a >= 0772340) && (a < 0772360) {
-		return pages[i].par
-	}
-	if (a >= 0777600) && (a < 0777620) {
-		return pages[i+8].pdr
-	}
-	if (a >= 0777640) && (a < 0777660) {
-		return pages[i+8].par
-	}
-	panic(trap{INTBUS, "invalid read from " + ostr(a, 6)})
-}
-
-func mmuwrite16(a, v int) {
-	i := ((a & 017) >> 1)
-	if (a >= 0772300) && (a < 0772320) {
-		pages[i] = createpage(pages[i].par, v)
-		return
-	}
-	if (a >= 0772340) && (a < 0772360) {
-		pages[i] = createpage(v, pages[i].pdr)
-		return
-	}
-	if (a >= 0777600) && (a < 0777620) {
-		pages[i+8] = createpage(pages[i+8].par, v)
-		return
-	}
-	if (a >= 0777640) && (a < 0777660) {
-		pages[i+8] = createpage(v, pages[i+8].pdr)
-		return
-	}
-	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
-}
-
 func (k *KB11) read8(a uint16) uint16 {
 	return k.unibus.physread8(k.decode(a, false, curuser))
 }
@@ -232,18 +174,18 @@ func (k *KB11) write16(a, v uint16) {
 }
 
 func (k *KB11) fetch16() uint16 {
-	val := k.read16(uint16(k.R[7]))
+	val := k.read16(k.R[7])
 	k.R[7] += 2
 	return val
 }
 
 func (k *KB11) push(v uint16) {
 	k.R[6] -= 2
-	k.write16(uint16(k.R[6]), v)
+	k.write16(k.R[6], v)
 }
 
 func (k *KB11) pop() uint16 {
-	val := k.read16(uint16(k.R[6]))
+	val := k.read16(k.R[6])
 	k.R[6] += 2
 	return val
 }

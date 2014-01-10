@@ -30,7 +30,7 @@ func (u *Unibus) physread16(a int) uint16 {
 	case a&0777760 == 0777400:
 		return uint16(u.rk.rkread16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
-		return uint16(mmuread16(a))
+		return mmuread16(a)
 	case a == 0776000:
 		panic("lolwut")
 	default:
@@ -101,7 +101,7 @@ func (u *Unibus) physwrite16(a int, v uint16) {
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
-		mmuwrite16(a, int(v))
+		mmuwrite16(a, v)
 	} else {
 		panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
 	}
