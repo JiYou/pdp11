@@ -101,7 +101,7 @@ func (r *RK05) Step() {
 			r.rkdisk[pos] = byte(val & 0xFF)
 			r.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			memory[r.RKBA>>1] = int(r.rkdisk[pos]) | int(r.rkdisk[pos+1])<<8
+			memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
 		}
 		r.RKBA += 2
 		pos += 2

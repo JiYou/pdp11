@@ -20,14 +20,6 @@ var (
 
 type intr struct{ vec, pri int }
 
-var pages [16]page
-
-type page struct {
-	par, pdr        int
-	addr, len       int
-	read, write, ed bool
-}
-
 // traps
 const (
 	INTBUS    = 0004
@@ -74,13 +66,19 @@ func xor(x, y int) int {
 	return z
 }
 
+func xor16(x, y uint16) uint16 {
+	a := x & y
+	b := ^x & ^y
+	z := ^a & ^b
+	return z
+}
+
 type KB11 struct {
-	R        [8]int // registers
-	PS       int    // processor status
-	PC       int    // address of current instruction
-	KSP, USP int    // kernel and user stack pointer
-	SR0, SR2 int
-	instr    int // current instruction
+	R        [8]uint16 // registers
+	PS       uint16    // processor status
+	PC       uint16    // address of current instruction
+	KSP, USP uint16    // kernel and user stack pointer
+	SR0, SR2 uint16
 
 	Input  chan uint8
 	unibus *Unibus
@@ -108,14 +106,15 @@ func (k *KB11) switchmode(newm bool) {
 	}
 }
 
-func (k *KB11) decode(a int, w, user bool) int {
+func (k *KB11) decode(a uint16, w, user bool) int {
 	var p page
-	var block, disp int
 	if !(k.SR0&1 == 1) {
-		if a >= 0170000 {
+		if a := int(a); a >= 0170000 {
 			a += 0600000
+			return a
+		} else {
+			return a
 		}
-		return a
 	}
 	if user {
 		p = pages[(a>>13)+8]
@@ -124,7 +123,7 @@ func (k *KB11) decode(a int, w, user bool) int {
 	}
 	if w && !p.write {
 		k.SR0 = (1 << 13) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= a >> 12 & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -133,19 +132,19 @@ func (k *KB11) decode(a int, w, user bool) int {
 	}
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= (a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
 		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
 	}
-	block = a >> 6 & 0177
-	disp = a & 077
+	block := a >> 6 & 0177
+	disp := int(a & 077)
 	if p.ed && block < p.len || !p.ed && block > p.len {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		k.SR0 = (1 << 14) | 1
-		k.SR0 |= (a >> 12) & ^(1)
+		k.SR0 |= (a >> 12) & ^uint16(1)
 		if user {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
@@ -155,87 +154,37 @@ func (k *KB11) decode(a int, w, user bool) int {
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return ((block + p.addr) << 6) + disp
+	return (int(block+p.addr) << 6) + disp
 }
 
-func createpage(par, pdr int) page {
-	return page{
-		par:   par,
-		pdr:   pdr,
-		addr:  par & 07777,
-		len:   pdr >> 8 & 0x7F,
-		read:  (pdr & 2) == 2,
-		write: (pdr & 6) == 6,
-		ed:    (pdr & 8) == 8,
-	}
-}
-
-func mmuread16(a int) int {
-	i := ((a & 017) >> 1)
-	if (a >= 0772300) && (a < 0772320) {
-		return pages[i].pdr
-	}
-	if (a >= 0772340) && (a < 0772360) {
-		return pages[i].par
-	}
-	if (a >= 0777600) && (a < 0777620) {
-		return pages[i+8].pdr
-	}
-	if (a >= 0777640) && (a < 0777660) {
-		return pages[i+8].par
-	}
-	panic(trap{INTBUS, "invalid read from " + ostr(a, 6)})
-}
-
-func mmuwrite16(a, v int) {
-	i := ((a & 017) >> 1)
-	if (a >= 0772300) && (a < 0772320) {
-		pages[i] = createpage(pages[i].par, v)
-		return
-	}
-	if (a >= 0772340) && (a < 0772360) {
-		pages[i] = createpage(v, pages[i].pdr)
-		return
-	}
-	if (a >= 0777600) && (a < 0777620) {
-		pages[i+8] = createpage(pages[i+8].par, v)
-		return
-	}
-	if (a >= 0777640) && (a < 0777660) {
-		pages[i+8] = createpage(v, pages[i+8].pdr)
-		return
-	}
-	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
-}
-
-func (k *KB11) read8(a int) int {
+func (k *KB11) read8(a uint16) uint16 {
 	return k.unibus.physread8(k.decode(a, false, curuser))
 }
 
-func (k *KB11) read16(a int) int {
-	return k.unibus.physread16(k.decode(a, false, curuser))
+func (k *KB11) read16(a uint16) uint16 {
+	return k.unibus.physread16(k.decode(uint16(a), false, curuser))
 }
 
-func (k *KB11) write8(a, v int) {
+func (k *KB11) write8(a, v uint16) {
 	k.unibus.physwrite8(k.decode(a, true, curuser), v)
 }
 
-func (k *KB11) write16(a, v int) {
+func (k *KB11) write16(a, v uint16) {
 	k.unibus.physwrite16(k.decode(a, true, curuser), v)
 }
 
-func (k *KB11) fetch16() int {
+func (k *KB11) fetch16() uint16 {
 	val := k.read16(k.R[7])
 	k.R[7] += 2
 	return val
 }
 
-func (k *KB11) push(v int) {
+func (k *KB11) push(v uint16) {
 	k.R[6] -= 2
 	k.write16(k.R[6], v)
 }
 
-func (k *KB11) pop() int {
+func (k *KB11) pop() uint16 {
 	val := k.read16(k.R[6])
 	k.R[6] += 2
 	return val
@@ -279,9 +228,9 @@ func (k *KB11) printstate() {
 	} else {
 		writedebug(" ")
 	}
-	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(k.instr, 6) + "   ")
-	writedebug(disasm(k.decode(k.PC, false, curuser)))
-	writedebug("\n")
+	ia := k.decode(k.PC, false, curuser)
+	instr := k.unibus.physread16(ia)
+	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(instr, 6) + "   " + disasm(ia) + "\n")
 }
 
 type trap struct {
@@ -340,7 +289,7 @@ func (k *KB11) handleinterrupt(vec int) {
 }
 
 func (k *KB11) trapat(vec int, msg string) {
-	var prev int
+	var prev uint16
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
@@ -374,14 +323,14 @@ func (k *KB11) trapat(vec int, msg string) {
 	k.push(k.R[7])
 }
 
-func (k *KB11) aget(v, l int) int {
+func (k *KB11) aget(v uint16, l uint16) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -(v + 1)
+		return -int(v + 1)
 	}
-	var addr int
+	var addr uint16
 	switch v & 060 {
 	case 000:
 		v &= 7
@@ -400,10 +349,10 @@ func (k *KB11) aget(v, l int) int {
 	if v&010 != 0 {
 		addr = k.read16(addr)
 	}
-	return addr
+	return int(addr)
 }
 
-func (k *KB11) memread(a, l int) int {
+func (k *KB11) memread(a int, l uint16) uint16 {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -413,12 +362,12 @@ func (k *KB11) memread(a, l int) int {
 		}
 	}
 	if l == 2 {
-		return k.read16(a)
+		return k.read16(uint16(a))
 	}
-	return k.read8(a)
+	return k.read8(uint16(a))
 }
 
-func (k *KB11) memwrite(a, l, v int) {
+func (k *KB11) memwrite(a int, l, v uint16) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -428,9 +377,9 @@ func (k *KB11) memwrite(a, l, v int) {
 			k.R[r&7] |= v
 		}
 	} else if l == 2 {
-		k.write16(a, v)
+		k.write16(uint16(a), v)
 	} else {
-		k.write8(a, v)
+		k.write8(uint16(a), v)
 	}
 }
 
@@ -440,34 +389,32 @@ func (k *KB11) branch(o int) {
 		o = -(((^o) + 1) & 0xFF)
 	}
 	o <<= 1
-	k.R[7] += o
+	k.R[7] += uint16(o)
 }
 
 func (k *KB11) step() {
-	var max, maxp, msb int
+	var max, maxp, msb uint16
 	if waiting {
-
 		select {
-		case c, ok := <-k.Input:
+		case v, ok := <-k.unibus.cons.Input:
 			if ok {
-				k.unibus.cons.addchar(int(c))
+				k.unibus.cons.addchar(int(v))
 			}
 		default:
 		}
 		return
 	}
 	k.PC = k.R[7]
-	ia := k.decode(k.R[7], false, curuser)
+	ia := k.decode(k.PC, false, curuser)
 	k.R[7] += 2
-	k.instr = k.unibus.physread16(ia)
 	if pr {
 		k.printstate()
 	}
-	instr := k.instr
+	instr := k.unibus.physread16(ia)
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
-	o := instr & 0xFF
+	o := int(instr) & 0xFF
 	if l == 2 {
 		max = 0xFFFF
 		maxp = 0x7FFF
@@ -615,21 +562,21 @@ func (k *KB11) step() {
 		}
 		k.push(k.R[s&7])
 		k.R[s&7] = k.R[7]
-		k.R[7] = val
+		k.R[7] = uint16(val)
 		return
 	case 0070000: // MUL
-		val1 := k.R[s&7]
+		val1 := int(k.R[s&7])
 		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
 		da := k.aget(d, l)
-		val2 := k.memread(da, 2)
+		val2 := int(k.memread(da, 2))
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
 		val := val1 * val2
-		k.R[s&7] = (val & 0xFFFF0000) >> 16
-		k.R[(s&7)|1] = val & 0xFFFF
+		k.R[s&7] = uint16((val & 0xFFFF0000) >> 16)
+		k.R[(s&7)|1] = uint16(val & 0xFFFF)
 		k.PS &= 0xFFF0
 		if val&0x80000000 == 0x80000000 {
 			k.PS |= FLAGN
@@ -642,9 +589,9 @@ func (k *KB11) step() {
 		}
 		return
 	case 0071000: // DIV
-		val1 := (k.R[s&7] << 16) | k.R[(s&7)|1]
+		val1 := int(k.R[s&7]<<16) | int(k.R[(s&7)|1])
 		da := k.aget(d, l)
-		val2 := k.memread(da, 2)
+		val2 := int(k.memread(da, 2))
 		k.PS &= 0xFFF0
 		if val2 == 0 {
 			k.PS |= FLAGC
@@ -654,8 +601,8 @@ func (k *KB11) step() {
 			k.PS |= FLAGV
 			return
 		}
-		k.R[s&7] = (val1 / val2) & 0xFFFF
-		k.R[(s&7)|1] = (val1 % val2) & 0xFFFF
+		k.R[s&7] = uint16((val1 / val2) & 0xFFFF)
+		k.R[(s&7)|1] = uint16((val1 % val2) & 0xFFFF)
 		if k.R[s&7] == 0 {
 			k.PS |= FLAGZ
 		}
@@ -669,9 +616,9 @@ func (k *KB11) step() {
 	case 0072000: // ASH
 		val1 := k.R[s&7]
 		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
+		val2 := k.memread(da, 2) & 077
 		k.PS &= 0xFFF0
-		var val int
+		var val uint16
 		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
@@ -680,32 +627,32 @@ func (k *KB11) step() {
 			} else {
 				val = val1 >> val2
 			}
-			shift := 1 << (val2 - 1)
+			shift := uint16(1) << (val2 - 1)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
-			shift := 1 << (16 - val2)
+			shift := uint16(1) << (16 - val2)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = val
+		k.R[s&7] = uint16(val)
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
 		if val&0100000 == 0100000 {
 			k.PS |= FLAGN
 		}
-		if xor(val&0100000, val1&0100000) != 0 {
+		if xor16(val&0100000, val1&0100000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
-		val1 := k.R[s&7]<<16 | k.R[(s&7)|1]
+		val1 := int(k.R[s&7]<<16) | int(k.R[(s&7)|1])
 		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
+		val2 := k.memread(da, 2) & 077
 		k.PS &= 0xFFF0
 		var val int
 		if val2&040 != 0 {
@@ -725,8 +672,8 @@ func (k *KB11) step() {
 				k.PS |= FLAGC
 			}
 		}
-		k.R[s&7] = (val >> 16) & 0xFFFF
-		k.R[(s&7)|1] = val & 0xFFFF
+		k.R[s&7] = uint16(val >> 16)
+		k.R[(s&7)|1] = uint16(val & 0xFFFF)
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
@@ -756,7 +703,7 @@ func (k *KB11) step() {
 		if k.R[s&7] != 0 {
 			o &= 077
 			o <<= 1
-			k.R[7] -= o
+			k.R[7] -= uint16(o)
 		}
 		return
 	}
@@ -911,7 +858,7 @@ func (k *KB11) step() {
 		if !(val&max != 0) {
 			k.PS |= FLAGZ
 		}
-		if xor(val&1, val&(max+1)) != 0 {
+		if xor16(val&1, val&(max+1)) != 0 {
 			k.PS |= FLAGV
 		}
 		val >>= 1
@@ -949,7 +896,7 @@ func (k *KB11) step() {
 		if val&msb == msb {
 			k.PS |= FLAGN
 		}
-		if xor(val&msb, val&1) != 0 {
+		if xor16(val&msb, val&1) != 0 {
 			k.PS |= FLAGV
 		}
 		val = (val & msb) | (val >> 1)
@@ -994,7 +941,7 @@ func (k *KB11) step() {
 			panic("whoa!")
 			break
 		}
-		k.R[7] = val
+		k.R[7] = uint16(val)
 		return
 	case 0000300: // SWAB
 		da := k.aget(d, l)
@@ -1015,7 +962,7 @@ func (k *KB11) step() {
 		k.R[5] = k.pop()
 		break
 	case 0006500: // MFPI
-		var val int
+		var val uint16
 		da := k.aget(d, 2)
 		switch {
 		case da == -7:
@@ -1032,7 +979,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MFPI instruction")
 		default:
-			val = k.unibus.physread16(k.decode(da, false, prevuser))
+			val = k.unibus.physread16(k.decode(uint16(da), false, prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
@@ -1061,7 +1008,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MTPI instrution")
 		default:
-			sa := k.decode(da, true, prevuser)
+			sa := k.decode(uint16(da), true, prevuser)
 			k.unibus.physwrite16(sa, val)
 		}
 		k.PS &= 0xFFF0
@@ -1094,22 +1041,22 @@ func (k *KB11) step() {
 		}
 		return
 	case 0002000:
-		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) {
+		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) {
 			k.branch(o)
 		}
 		return
 	case 0002400:
-		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 {
+		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 {
 			k.branch(o)
 		}
 		return
 	case 0003000:
-		if !(xor(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
+		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
 	case 0003400:
-		if xor(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
+		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
 			k.branch(o)
 		}
 		return
@@ -1155,7 +1102,7 @@ func (k *KB11) step() {
 		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
-		var vec, prev int
+		var vec uint16
 		switch {
 		case (instr & 0177400) == 0104000:
 			vec = 030
@@ -1166,7 +1113,7 @@ func (k *KB11) step() {
 		default:
 			vec = 020
 		}
-		prev = k.PS
+		prev := k.PS
 		k.switchmode(false)
 		k.push(prev)
 		k.push(k.R[7])
@@ -1234,7 +1181,7 @@ func (k *KB11) Reset() {
 	k.PC = 0
 	k.KSP = 0
 	k.USP = 0
-	k.Input = make(chan uint8)
+	k.Input = make(chan uint8) // unix\n
 	curuser = false
 	prevuser = false
 	k.SR0 = 0
@@ -1243,14 +1190,14 @@ func (k *KB11) Reset() {
 		memory[i] = 0
 	}
 	for i := 0; i < len(bootrom); i++ {
-		memory[01000+i] = int(bootrom[i])
+		memory[01000+i] = bootrom[i]
 	}
 	for i := 0; i < 16; i++ {
 		pages[i] = createpage(0, 0)
 	}
 	k.R[7] = 02002
 	k.unibus.cons.clearterminal()
-	k.unibus.cons.input = []int{'u', 'n', 'i', 'x', '\n'}
+	k.unibus.cons.Input = k.Input
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
@@ -1276,7 +1223,7 @@ func (k *KB11) onestep() {
 	}()
 
 	k.step()
-	if len(interrupts) > 0 && interrupts[0].pri >= ((k.PS>>5)&7) {
+	if len(interrupts) > 0 && interrupts[0].pri >= ((int(k.PS)>>5)&7) {
 		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 		k.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]

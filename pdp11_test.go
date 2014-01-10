@@ -1,6 +1,7 @@
 package pdp11
 
 import "testing"
+import "time"
 
 func TestXOR(t *testing.T) {
 	for _, tt := range []struct {
@@ -18,36 +19,42 @@ func TestXOR(t *testing.T) {
 	}
 }
 
-const N = 4000000
+const N = 4 * 1000 * 1000
 
 var pdpTests = []struct {
 	input  string
 	cycles int
 }{
-	{"", N},
 	//	{"STTY -LCASE\n", N},
-	{"date\n", N},    // processor loops
-	{"ls /bin\n", N}, // read from odd address
-	{"who\n", N},     // read from no-access page 01002
-	{"cat /etc/passwd\n", N},
-	/**	{`ed test\.c
-	  a
-	  main() {
-	      printf("Hello, world!\n");
-	  }
-	  .
-	  w
-	  q
-	  cc test
-	  a.out
-	  `, 10*N},*/
+	{"\ndate\n", N},    // processor loops
+	{"\nls /bin\n", N}, // read from odd address
+	{"\nwho\n", N},     // read from no-access page 01002
+	{"\ncat /etc/passwd\n", N},
+	{`
+ed TEST.C
+a
+main() {
+printf("Hello, world!\n");
+}
+.
+w
+q
+cc test
+a.out
+`, 2 * N},
 }
 
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		cpu := New()
 		go func() {
-			defer close(cpu.Input)
+			c := cpu.Input
+			c <- 'u'
+			c <- 'n'
+			c <- 'i'
+			c <- 'x'
+			c <- '\n'
+			time.Sleep(10 * time.Microsecond)
 			for _, c := range tt.input {
 				cpu.Input <- uint8(c)
 			}
