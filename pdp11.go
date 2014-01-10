@@ -323,12 +323,12 @@ func (k *KB11) trapat(vec int, msg string) {
 	k.push(k.R[7])
 }
 
-func (k *KB11) aget(v int, l uint16) int {
+func (k *KB11) aget(v uint16, l uint16) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -(v + 1)
+		return -int(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
@@ -404,17 +404,17 @@ func (k *KB11) step() {
 		}
 		return
 	}
-	k.PC = uint16(k.R[7])
+	k.PC = k.R[7]
 	ia := k.decode(k.PC, false, curuser)
 	k.R[7] += 2
 	if pr {
 		k.printstate()
 	}
-	instr := int(k.unibus.physread16(ia))
+	instr := k.unibus.physread16(ia)
 	d := instr & 077
 	s := (instr & 07700) >> 6
-	l := uint16(2 - (instr >> 15)) // TODO
-	o := instr & 0xFF
+	l := 2 - (instr >> 15)
+	o := int(instr) & 0xFF
 	if l == 2 {
 		max = 0xFFFF
 		maxp = 0x7FFF
@@ -614,11 +614,11 @@ func (k *KB11) step() {
 		}
 		return
 	case 0072000: // ASH
-		val1 := int(k.R[s&7])
+		val1 := k.R[s&7]
 		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
+		val2 := k.memread(da, 2) & 077
 		k.PS &= 0xFFF0
-		var val int
+		var val uint16
 		if val2&040 != 0 {
 			val2 = (077 ^ val2) + 1
 			if val1&0100000 == 0100000 {
@@ -627,13 +627,13 @@ func (k *KB11) step() {
 			} else {
 				val = val1 >> val2
 			}
-			shift := 1 << (val2 - 1)
+			shift := uint16(1) << (val2 - 1)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
 		} else {
 			val = (val1 << val2) & 0xFFFF
-			shift := 1 << (16 - val2)
+			shift := uint16(1) << (16 - val2)
 			if val1&shift == shift {
 				k.PS |= FLAGC
 			}
@@ -645,14 +645,14 @@ func (k *KB11) step() {
 		if val&0100000 == 0100000 {
 			k.PS |= FLAGN
 		}
-		if xor(val&0100000, val1&0100000) != 0 {
+		if xor16(val&0100000, val1&0100000) != 0 {
 			k.PS |= FLAGV
 		}
 		return
 	case 0073000: // ASHC
 		val1 := int(k.R[s&7]<<16) | int(k.R[(s&7)|1])
 		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
+		val2 := k.memread(da, 2) & 077
 		k.PS &= 0xFFF0
 		var val int
 		if val2&040 != 0 {
@@ -685,7 +685,7 @@ func (k *KB11) step() {
 		}
 		return
 	case 0074000: // XOR
-		val1 := uint16(k.R[s&7])
+		val1 := k.R[s&7]
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := val1 ^ val2
@@ -957,7 +957,7 @@ func (k *KB11) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006400: // MARK
-		k.R[6] = k.R[7] + uint16(instr&077)<<1
+		k.R[6] = k.R[7] + (instr&077)<<1
 		k.R[7] = k.R[5]
 		k.R[5] = k.pop()
 		break
@@ -968,7 +968,7 @@ func (k *KB11) step() {
 		case da == -7:
 			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 			if curuser == prevuser {
-				val = uint16(k.R[6])
+				val = k.R[6]
 			} else {
 				if prevuser {
 					val = k.USP
@@ -1102,7 +1102,7 @@ func (k *KB11) step() {
 		return
 	}
 	if (instr&0177000) == 0104000 || instr == 3 || instr == 4 { // EMT TRAP IOT BPT
-		var vec int
+		var vec uint16
 		switch {
 		case (instr & 0177400) == 0104000:
 			vec = 030
@@ -1126,9 +1126,9 @@ func (k *KB11) step() {
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			k.PS |= uint16(instr) & 017
+			k.PS |= instr & 017
 		} else {
-			k.PS &= ^(uint16(instr) & 017)
+			k.PS &= ^(instr & 017)
 		}
 		return
 	}
