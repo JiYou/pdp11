@@ -85,7 +85,7 @@ type KB11 struct {
 	R        [8]int // registers
 	PS       uint16 // processor status
 	PC       uint16 // address of current instruction
-	KSP, USP int    // kernel and user stack pointer
+	KSP, USP uint16 // kernel and user stack pointer
 	SR0, SR2 int
 	instr    int // current instruction
 
@@ -97,14 +97,14 @@ func (k *KB11) switchmode(newm bool) {
 	prevuser = curuser
 	curuser = newm
 	if prevuser {
-		k.USP = k.R[6]
+		k.USP = uint16(k.R[6])
 	} else {
-		k.KSP = k.R[6]
+		k.KSP = uint16(k.R[6])
 	}
 	if curuser {
-		k.R[6] = k.USP
+		k.R[6] = int(k.USP)
 	} else {
-		k.R[6] = k.KSP
+		k.R[6] = int(k.KSP)
 	}
 	k.PS &= 0007777
 	if curuser {
@@ -1023,9 +1023,9 @@ func (k *KB11) step() {
 				val = k.R[6]
 			} else {
 				if prevuser {
-					val = k.USP
+					val = int(k.USP)
 				} else {
-					val = k.KSP
+					val = int(k.KSP)
 				}
 			}
 		case da < 0:
@@ -1052,9 +1052,9 @@ func (k *KB11) step() {
 				k.R[6] = val
 			} else {
 				if prevuser {
-					k.USP = val
+					k.USP = uint16(val)
 				} else {
-					k.KSP = val
+					k.KSP = uint16(val)
 				}
 			}
 		case da < 0:
