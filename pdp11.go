@@ -585,14 +585,15 @@ func (k *KB11) step() {
 		if val2&0x8000 == 0x8000 {
 			val2 = -((0xFFFF ^ val2) + 1)
 		}
-		val := uint32(int32(int16(val1)) * int32(int16(val2)))
+		println(val1, val2)
+		val := uint32(val1) * uint32(val2)
 		k.R[s&7] = uint16((val & 0xFFFF0000) >> 16)
 		k.R[(s&7)|1] = uint16(val & 0xFFFF)
 		k.PS &= 0xFFF0
-		if val&0x80000000 == 0x80000000 {
+		if uint32(val)&0x80000000 == 0x80000000 {
 			k.PS |= FLAGN
 		}
-		if val&0xFFFFFFFF == 0 {
+		if uint32(val)&0xFFFFFFFF == 0 {
 			k.PS |= FLAGZ
 		}
 		if val < (1<<15) || val >= ((1<<15)-1) {
@@ -600,9 +601,9 @@ func (k *KB11) step() {
 		}
 		return
 	case 0071000: // DIV
-		val1 := int(k.R[s&7]<<16) | int(k.R[(s&7)|1])
+		val1 := uint32(k.R[s&7]<<16) | uint32(k.R[(s&7)|1])
 		da := k.aget(d, l)
-		val2 := int(k.memread(da, 2))
+		val2 := uint32(k.memread(da, 2))
 		k.PS &= 0xFFF0
 		if val2 == 0 {
 			k.PS |= FLAGC
