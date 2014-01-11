@@ -128,7 +128,7 @@ func (k *KB11) decode(a uint16, w, user bool) uint18 {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
-		panic(trap{INTFAULT, "write to read-only page " + ostr(a, 6)})
+		panic(trap{INTFAULT, fmt.Sprintf("write to read-only page %06o", a)})
 	}
 	if !p.read {
 		k.SR0 = (1 << 15) | 1
@@ -137,7 +137,7 @@ func (k *KB11) decode(a uint16, w, user bool) uint18 {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
-		panic(trap{INTFAULT, "read from no-access page " + ostr(a, 6)})
+		panic(trap{INTFAULT, fmt.Sprintf("read from no-access page %06o", a)})
 	}
 	block := a >> 6 & 0177
 	disp := uint18(a & 077)
@@ -149,7 +149,7 @@ func (k *KB11) decode(a uint16, w, user bool) uint18 {
 			k.SR0 |= (1 << 5) | (1 << 6)
 		}
 		k.SR2 = k.PC
-		panic(trap{INTFAULT, "page length exceeded, address " + ostr(a, 6) + " (block " + ostr(block, 3) + ") is beyond length " + ostr(p.len, 3)})
+		panic(trap{INTFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len)})
 	}
 	if w {
 		p.pdr |= 1 << 6
@@ -190,47 +190,41 @@ func (k *KB11) pop() uint16 {
 	return val
 }
 
-func ostr(z interface{}, n int) string {
-	return fmt.Sprintf("%0"+fmt.Sprintf("%d", n)+"o", z)
-}
-
-var writedebug = fmt.Print
-
 func (k *KB11) printstate() {
-	writedebug(fmt.Sprintf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", k.R[0], k.R[1], k.R[2], k.R[3], k.R[4], k.R[5], k.R[6], k.R[7]))
+	fmt.Printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", k.R[0], k.R[1], k.R[2], k.R[3], k.R[4], k.R[5], k.R[6], k.R[7])
 	if prevuser {
-		writedebug("u")
+		fmt.Print("u")
 	} else {
-		writedebug("k")
+		fmt.Print("k")
 	}
 	if curuser {
-		writedebug("U")
+		fmt.Print("U")
 	} else {
-		writedebug("K")
+		fmt.Print("K")
 	}
 	if k.PS&FLAGN != 0 {
-		writedebug("N")
+		fmt.Print("N")
 	} else {
-		writedebug(" ")
+		fmt.Print(" ")
 	}
 	if k.PS&FLAGZ != 0 {
-		writedebug("Z")
+		fmt.Print("Z")
 	} else {
-		writedebug(" ")
+		fmt.Print(" ")
 	}
 	if k.PS&FLAGV != 0 {
-		writedebug("V")
+		fmt.Print("V")
 	} else {
-		writedebug(" ")
+		fmt.Print(" ")
 	}
 	if k.PS&FLAGC != 0 {
-		writedebug("C")
+		fmt.Print("C")
 	} else {
-		writedebug(" ")
+		fmt.Print(" ")
 	}
 	ia := k.decode(k.PC, false, curuser)
 	instr := k.unibus.physread16(ia)
-	writedebug("]  instr " + ostr(k.PC, 6) + ": " + ostr(instr, 6) + "   " + disasm(ia) + "\n")
+	fmt.Printf("]  instr %06o: %06o   %s\n", k.PC, instr, disasm(ia))
 }
 
 type trap struct {
@@ -294,7 +288,7 @@ func (k *KB11) trapat(vec int, msg string) {
 		t := recover()
 		switch t := t.(type) {
 		case trap:
-			writedebug("red stack trap!\n")
+			fmt.Println("red stack trap!")
 			memory[0] = uint16(k.R[7])
 			memory[1] = prev
 			vec = 4
@@ -314,7 +308,7 @@ func (k *KB11) trapat(vec int, msg string) {
 	if vec&1 == 1 {
 		panic("Thou darst calling trapat() with an odd vector number?")
 	}
-	writedebug("trap " + ostr(vec, 6) + " occured: " + msg + "\n")
+	fmt.Printf("trap %06o occured: %s\n", vec, msg)
 	k.printstate()
 
 	prev = k.PS
@@ -1137,7 +1131,7 @@ func (k *KB11) step() {
 		if curuser {
 			break
 		}
-		writedebug("HALT\n")
+		fmt.Println("HALT")
 		k.printstate()
 		panic("HALT")
 		return

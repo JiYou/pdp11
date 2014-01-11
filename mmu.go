@@ -1,5 +1,7 @@
 package pdp11
 
+import "fmt"
+
 var pages [16]page
 
 type page struct {
@@ -34,7 +36,7 @@ func mmuread16(a uint18) uint16 {
 	if (a >= 0777640) && (a < 0777660) {
 		return pages[i+8].par
 	}
-	panic(trap{INTBUS, "invalid read from " + ostr(a, 6)})
+	panic(trap{INTBUS, fmt.Sprintf("invalid read from %06o", a)})
 }
 
 func mmuwrite16(a uint18, v uint16) {
@@ -55,5 +57,5 @@ func mmuwrite16(a uint18, v uint16) {
 		pages[i+8] = createpage(v, pages[i+8].pdr)
 		return
 	}
-	panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
+	panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 }

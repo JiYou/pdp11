@@ -1,5 +1,7 @@
 package pdp11
 
+import "fmt"
+
 var memory [128 * 1024]uint16 // word addressing
 
 type Unibus struct {
@@ -15,7 +17,7 @@ type uint18 uint32
 func (u *Unibus) physread16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
-		panic(trap{INTBUS, "read from odd address " + ostr(a, 6)})
+		panic(trap{INTBUS, fmt.Sprintf("read from odd address %06o", a)})
 	case a < 0760000:
 		return memory[a>>1]
 	case a == 0777546:
@@ -37,7 +39,7 @@ func (u *Unibus) physread16(a uint18) uint16 {
 	case a == 0776000:
 		panic("lolwut")
 	default:
-		panic(trap{INTBUS, "read from invalid address " + ostr(a, 6)})
+		panic(trap{INTBUS, fmt.Sprintf("read from invalid address %06o", a)})
 	}
 }
 
@@ -69,7 +71,7 @@ func (u *Unibus) physwrite8(a uint18, v uint16) {
 
 func (u *Unibus) physwrite16(a uint18, v uint16) {
 	if a%1 != 0 {
-		panic(trap{INTBUS, "write to odd address " + ostr(a, 6)})
+		panic(trap{INTBUS, fmt.Sprintf("write to odd address %06o", a)})
 	}
 	if a < 0760000 {
 		memory[a>>1] = v
@@ -106,6 +108,6 @@ func (u *Unibus) physwrite16(a uint18, v uint16) {
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
 		mmuwrite16(a, v)
 	} else {
-		panic(trap{INTBUS, "write to invalid address " + ostr(a, 6)})
+		panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 	}
 }
