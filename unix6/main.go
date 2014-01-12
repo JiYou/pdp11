@@ -25,9 +25,8 @@ func stdin(c chan uint8) {
 }
 
 func main() {
-	cpu := pdp11.New()
-	go stdin(cpu.Input)
-	for {
-		cpu.Step()
-	}
+	pdp := pdp11.New()
+	pdp.LoadBootrom(01000, pdp11.BOOTRK05)
+	go stdin(pdp.Input)
+	pdp.Run()
 }

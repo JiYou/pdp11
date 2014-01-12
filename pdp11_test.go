@@ -47,6 +47,7 @@ a.out
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		pdp := New()
+		pdp.LoadBootrom(01000, BOOTRK05)
 		go func() {
 			c := pdp.cpu.Input
 			c <- 'u'

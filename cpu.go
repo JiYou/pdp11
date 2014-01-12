@@ -32,32 +32,6 @@ const (
 	INTRK     = 0220
 )
 
-var bootrom = [...]uint16{
-	0042113,        /* "KD" */
-	0012706, 02000, /* MOV #boot_start, SP */
-	0012700, 0000000, /* MOV #unit, R0        ; unit number */
-	0010003,          /* MOV R0, R3 */
-	0000303,          /* SWAB R3 */
-	0006303,          /* ASL R3 */
-	0006303,          /* ASL R3 */
-	0006303,          /* ASL R3 */
-	0006303,          /* ASL R3 */
-	0006303,          /* ASL R3 */
-	0012701, 0177412, /* MOV #RKDA, R1        ; csr */
-	0010311,          /* MOV R3, (R1)         ; load da */
-	0005041,          /* CLR -(R1)            ; clear ba */
-	0012741, 0177000, /* MOV #-256.*2, -(R1)  ; load wc */
-	0012741, 0000005, /* MOV #READ+GO, -(R1)  ; read & go */
-	0005002,        /* CLR R2 */
-	0005003,        /* CLR R3 */
-	0012704, 02020, /* MOV #START+20, R4 */
-	0005005, /* CLR R5 */
-	0105711, /* TSTB (R1) */
-	0100376, /* BPL .-2 */
-	0105011, /* CLRB (R1) */
-	0005007, /* CLR PC */
-}
-
 func xor(x, y int) int {
 	a := x & y
 	b := ^x & ^y
@@ -1029,11 +1003,8 @@ func (k *cpu) Reset() {
 	k.prevuser = false
 	k.mmu.SR0 = 0
 	k.unibus.LKS = 1 << 7
-	for i := 0; i < len(k.unibus.Memory); i++ {
-		k.unibus.Memory[i] = 0
-	}
-	for i := 0; i < len(bootrom); i++ {
-		k.unibus.Memory[01000+i] = bootrom[i]
+	for i := uint18(0); int(i) < len(k.unibus.Memory); i++ {
+		k.unibus.write16(i, 0)
 	}
 	for i := 0; i < 16; i++ {
 		k.mmu.pages[i] = createpage(0, 0)
