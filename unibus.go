@@ -2,40 +2,39 @@ package pdp11
 
 import "fmt"
 
-var memory [128 * 1024]uint16 // word addressing
-
-type Unibus struct {
-	LKS  uint16
-	cpu  *KB11
-	rk   *RK05 // drive 0
-	cons *Console
+type unibus struct {
+	Memory [128 * 1024]uint16
+	LKS    uint16
+	*KB11
+	rk   RK05 // drive 0
+	cons Console
 }
 
 // uint18 represents a unibus 18 bit physical address
 type uint18 uint32
 
-func (u *Unibus) physread16(a uint18) uint16 {
+func (u *unibus) physread16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, fmt.Sprintf("read from odd address %06o", a)})
 	case a < 0760000:
-		return memory[a>>1]
+		return u.Memory[a>>1]
 	case a == 0777546:
 		return u.LKS
 	case a == 0777570:
-		return 0173030
+		return 0 // 0173030
 	case a == 0777572:
-		return u.cpu.SR0
+		return u.SR0
 	case a == 0777576:
-		return u.cpu.SR2
+		return u.SR2
 	case a == 0777776:
-		return u.cpu.PS
+		return u.PS
 	case a&0777770 == 0777560:
 		return uint16(u.cons.consread16(a))
 	case a&0777760 == 0777400:
 		return uint16(u.rk.rkread16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
-		return mmuread16(a)
+		return u.mmuread16(a)
 	case a == 0776000:
 		panic("lolwut")
 	default:
@@ -43,7 +42,7 @@ func (u *Unibus) physread16(a uint18) uint16 {
 	}
 }
 
-func (u *Unibus) physread8(a uint18) uint16 {
+func (u *unibus) physread8(a uint18) uint16 {
 	val := u.physread16(a & ^uint18(1))
 	if a&1 != 0 {
 		return val >> 8
@@ -51,14 +50,14 @@ func (u *Unibus) physread8(a uint18) uint16 {
 	return val & 0xFF
 }
 
-func (u *Unibus) physwrite8(a uint18, v uint16) {
+func (u *unibus) physwrite8(a uint18, v uint16) {
 	if a < 0760000 {
 		if a&1 == 1 {
-			memory[a>>1] &= 0xFF
-			memory[a>>1] |= v & 0xFF << 8
+			u.Memory[a>>1] &= 0xFF
+			u.Memory[a>>1] |= v & 0xFF << 8
 		} else {
-			memory[a>>1] &= 0xFF00
-			memory[a>>1] |= v & 0xFF
+			u.Memory[a>>1] &= 0xFF00
+			u.Memory[a>>1] |= v & 0xFF
 		}
 	} else {
 		if a&1 == 1 {
@@ -69,12 +68,12 @@ func (u *Unibus) physwrite8(a uint18, v uint16) {
 	}
 }
 
-func (u *Unibus) physwrite16(a uint18, v uint16) {
+func (u *unibus) physwrite16(a uint18, v uint16) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, fmt.Sprintf("write to odd address %06o", a)})
 	}
 	if a < 0760000 {
-		memory[a>>1] = v
+		u.Memory[a>>1] = v
 	} else if a == 0777776 {
 		switch v >> 14 {
 		case 0:
@@ -106,7 +105,7 @@ func (u *Unibus) physwrite16(a uint18, v uint16) {
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
-		mmuwrite16(a, v)
+		u.mmuwrite16(a, v)
 	} else {
 		panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 	}

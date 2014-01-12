@@ -69,20 +69,20 @@ var disasmtable = []D{
 	{0177777, 0000004, "IOT", "", false},
 }
 
-func disasmaddr(m uint16, a uint18) string {
+func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
 	if (m & 7) == 7 {
 		switch m {
 		case 027:
 			a += 2
-			return fmt.Sprintf("$%06o", memory[a>>1])
+			return fmt.Sprintf("$%06o", p.Memory[a>>1])
 		case 037:
 			a += 2
-			return fmt.Sprintf("*%06o", memory[a>>1])
+			return fmt.Sprintf("*%06o", p.Memory[a>>1])
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a+2+uint18(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("*%06o", (a+2+uint18(p.Memory[a>>1]))&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%06o", (a+2+uint18(memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("**%06o", (a+2+uint18(p.Memory[a>>1]))&0xFFFF)
 		}
 	}
 	r := rs[m&7]
@@ -101,16 +101,16 @@ func disasmaddr(m uint16, a uint18) string {
 		return "*-(" + r + ")"
 	case 060:
 		a += 2
-		return fmt.Sprintf("%06o (%s)", memory[a>>1], r)
+		return fmt.Sprintf("%06o (%s)", p.Memory[a>>1], r)
 	case 070:
 		a += 2
-		return fmt.Sprintf("*%06o (%s)", memory[a>>1], r)
+		return fmt.Sprintf("*%06o (%s)", p.Memory[a>>1], r)
 	}
 	panic(fmt.Sprintf("disasmaddr: unknown addressing mode, register %v, mode %o", r, m&070))
 }
 
-func disasm(a uint18) string {
-	ins := memory[a>>1]
+func (p *PDP1140) disasm(a uint18) string {
+	ins := p.Memory[a>>1]
 	msg := "???"
 	var l D
 	for i := 0; i < len(disasmtable); i++ {
@@ -131,10 +131,10 @@ func disasm(a uint18) string {
 	o := byte(ins & 0377)
 	switch l.flag {
 	case "SD":
-		msg += " " + disasmaddr(s, a) + ","
+		msg += " " + p.disasmaddr(s, a) + ","
 		fallthrough
 	case "D":
-		msg += " " + disasmaddr(d, a)
+		msg += " " + p.disasmaddr(d, a)
 	case "RO":
 		msg += " " + rs[(ins&0700)>>6] + ","
 		o &= 077
@@ -146,7 +146,7 @@ func disasm(a uint18) string {
 			msg += fmt.Sprintf(" +%#o", (2 * o))
 		}
 	case "RD":
-		msg += " " + rs[(ins&0700)>>6] + ", " + disasmaddr(d, a)
+		msg += " " + rs[(ins&0700)>>6] + ", " + p.disasmaddr(d, a)
 	case "R":
 		msg += " " + rs[ins&7]
 	case "R3":
