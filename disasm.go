@@ -4,14 +4,12 @@ import "fmt"
 
 var rs = [...]string{"R0", "R1", "R2", "R3", "R4", "R5", "SP", "PC"}
 
-type D struct {
+var disasmtable = []struct {
 	inst, arg uint16
 	msg       string
 	flag      string
 	b         bool
-}
-
-var disasmtable = []D{
+}{
 	{0077700, 0005000, "CLR", "D", true},
 	{0077700, 0005100, "COM", "D", true},
 	{0077700, 0005200, "INC", "D", true},
@@ -112,7 +110,7 @@ func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
 func (p *PDP1140) disasm(a uint18) string {
 	ins := p.Memory[a>>1]
 	msg := "???"
-	var l D
+	l := disasmtable[0]
 	for i := 0; i < len(disasmtable); i++ {
 		l = disasmtable[i]
 		if (ins & l.inst) == l.arg {
