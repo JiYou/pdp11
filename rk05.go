@@ -17,7 +17,7 @@ type RK05 struct {
 	drive, sector, surface, cylinder, rkimg int
 	running                                 bool
 	rkdisk                                  []byte // rk0 disk image
-	*unibus
+	unibus                                  *unibus
 }
 
 func (r *RK05) rkread16(a uint18) int {
@@ -99,11 +99,11 @@ func (r *RK05) Step() {
 	pos := (r.cylinder*24 + r.surface*12 + r.sector) * 512
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
 		if w {
-			val := r.Memory[r.RKBA>>1]
+			val := r.unibus.Memory[r.RKBA>>1]
 			r.rkdisk[pos] = byte(val & 0xFF)
 			r.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			r.Memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
+			r.unibus.Memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
 		}
 		r.RKBA += 2
 		pos += 2

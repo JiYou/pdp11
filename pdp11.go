@@ -5,11 +5,11 @@ import "fmt"
 // PDP1140 represents a PDP 11/40 with 128KW of memory.
 type PDP1140 struct {
 	unibus
-	KB11
+	cpu KB11
 }
 
 func (p *PDP1140) printstate() {
-	var cpu = p.KB11
+	var cpu = p.cpu
 	var R = cpu.R
 	fmt.Printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", R[0], R[1], R[2], R[3], R[4], R[5], R[6], R[7])
 	if prevuser {
@@ -42,7 +42,7 @@ func (p *PDP1140) printstate() {
 	} else {
 		fmt.Print(" ")
 	}
-	ia := cpu.decode(cpu.PC, false, curuser)
+	ia := cpu.mmu.decode(cpu.PC, false, curuser)
 	instr := p.physread16(ia)
 	fmt.Printf("]  instr %06o: %06o   %s\n", cpu.PC, instr, p.disasm(ia))
 }
@@ -82,11 +82,11 @@ func (p *PDP1140) Step() {
 
 func New() *PDP1140 {
 	var pdp PDP1140
-	pdp.KB11.unibus = &pdp.unibus
-	pdp.unibus.cpu = &pdp.KB11
-	pdp.mmu.cpu = &pdp.KB11
+	pdp.cpu.unibus = &pdp.unibus
+	pdp.unibus.cpu = &pdp.cpu
+	pdp.cpu.mmu.cpu = &pdp.cpu
 	pdp.unibus.rk.unibus = &pdp.unibus
 	pdp.unibus.rk.rkinit()
-	pdp.Reset()
+	pdp.cpu.Reset()
 	return &pdp
 }

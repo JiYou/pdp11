@@ -79,9 +79,9 @@ type KB11 struct {
 	PC       uint16 // address of current instruction
 	KSP, USP uint16 // kernel and user stack pointer
 
-	Input chan uint8
-	*unibus
-	mmu
+	Input  chan uint8
+	unibus *unibus
+	mmu    mmu
 }
 
 func (k *KB11) switchmode(newm bool) {
@@ -107,23 +107,23 @@ func (k *KB11) switchmode(newm bool) {
 }
 
 func (k *KB11) read8(a uint16) uint16 {
-	addr := k.decode(a, false, curuser)
-	return k.physread8(addr)
+	addr := k.mmu.decode(a, false, curuser)
+	return k.unibus.physread8(addr)
 }
 
 func (k *KB11) read16(a uint16) uint16 {
-	addr := k.decode(a, false, curuser)
-	return k.physread16(addr)
+	addr := k.mmu.decode(a, false, curuser)
+	return k.unibus.physread16(addr)
 }
 
 func (k *KB11) write8(a, v uint16) {
-	addr := k.decode(a, true, curuser)
-	k.physwrite8(addr, v)
+	addr := k.mmu.decode(a, true, curuser)
+	k.unibus.physwrite8(addr, v)
 }
 
 func (k *KB11) write16(a, v uint16) {
-	addr := k.decode(a, true, curuser)
-	k.physwrite16(addr, v)
+	addr := k.mmu.decode(a, true, curuser)
+	k.unibus.physwrite16(addr, v)
 }
 
 func (k *KB11) fetch16() uint16 {
@@ -172,7 +172,6 @@ func interrupt(vec, pri int) {
 }
 
 func (p *PDP1140) handleinterrupt(vec int) {
-	var cpu = p.cpu
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
@@ -183,28 +182,27 @@ func (p *PDP1140) handleinterrupt(vec int) {
 		default:
 			panic(t)
 		}
-		cpu.R[7] = int(p.Memory[vec>>1])
-		cpu.PS = p.Memory[(vec>>1)+1]
+		p.cpu.R[7] = int(p.Memory[vec>>1])
+		p.cpu.PS = p.Memory[(vec>>1)+1]
 		if prevuser {
-			cpu.PS |= (1 << 13) | (1 << 12)
+			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
-	prev := cpu.PS
-	cpu.switchmode(false)
-	cpu.push(prev)
-	cpu.push(uint16(cpu.R[7]))
+	prev := p.cpu.PS
+	p.cpu.switchmode(false)
+	p.cpu.push(prev)
+	p.cpu.push(uint16(p.cpu.R[7]))
 }
 
 func (p *PDP1140) trapat(vec int, msg string) {
 	var prev uint16
-	var cpu = p.cpu
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
 		case trap:
 			fmt.Println("red stack trap!")
-			p.Memory[0] = uint16(cpu.R[7])
+			p.Memory[0] = uint16(p.cpu.R[7])
 			p.Memory[1] = prev
 			vec = 4
 			panic("fatal")
@@ -213,10 +211,10 @@ func (p *PDP1140) trapat(vec int, msg string) {
 		default:
 			panic(t)
 		}
-		cpu.R[7] = int(p.Memory[vec>>1])
-		cpu.PS = p.Memory[(vec>>1)+1]
+		p.cpu.R[7] = int(p.Memory[vec>>1])
+		p.cpu.PS = p.Memory[(vec>>1)+1]
 		if prevuser {
-			cpu.PS |= (1 << 13) | (1 << 12)
+			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
@@ -226,10 +224,10 @@ func (p *PDP1140) trapat(vec int, msg string) {
 	fmt.Printf("trap %06o occured: %s\n", vec, msg)
 	p.printstate()
 
-	prev = cpu.PS
-	cpu.switchmode(false)
-	cpu.push(prev)
-	cpu.push(uint16(cpu.R[7]))
+	prev = p.cpu.PS
+	p.cpu.switchmode(false)
+	p.cpu.push(prev)
+	p.cpu.push(uint16(p.cpu.R[7]))
 }
 
 func (k *KB11) aget(v int, l int) int {
@@ -305,18 +303,18 @@ func (k *KB11) step() {
 	var max, maxp, msb uint16
 	if waiting {
 		select {
-		case v, ok := <-k.cons.Input:
+		case v, ok := <-k.unibus.cons.Input:
 			if ok {
-				k.cons.addchar(int(v))
+				k.unibus.cons.addchar(int(v))
 			}
 		default:
 		}
 		return
 	}
 	k.PC = uint16(k.R[7])
-	ia := k.decode(k.PC, false, curuser)
+	ia := k.mmu.decode(k.PC, false, curuser)
 	k.R[7] += 2
-	instr := int(k.physread16(ia))
+	instr := int(k.unibus.physread16(ia))
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
@@ -885,7 +883,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MFPI instruction")
 		default:
-			val = k.physread16(k.decode(uint16(da), false, prevuser))
+			val = k.unibus.physread16(k.mmu.decode(uint16(da), false, prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
@@ -914,8 +912,8 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MTPI instrution")
 		default:
-			sa := k.decode(uint16(da), true, prevuser)
-			k.physwrite16(sa, val)
+			sa := k.mmu.decode(uint16(da), true, prevuser)
+			k.unibus.physwrite16(sa, val)
 		}
 		k.PS &= 0xFFF0
 		k.PS |= FLAGC
@@ -1023,8 +1021,8 @@ func (k *KB11) step() {
 		k.switchmode(false)
 		k.push(prev)
 		k.push(uint16(k.R[7]))
-		k.R[7] = int(k.Memory[vec>>1])
-		k.PS = k.Memory[(vec>>1)+1]
+		k.R[7] = int(k.unibus.Memory[vec>>1])
+		k.PS = k.unibus.Memory[(vec>>1)+1]
 		if prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -1062,14 +1060,14 @@ func (k *KB11) step() {
 			val &= 047
 			val |= k.PS & 0177730
 		}
-		k.physwrite16(0777776, val)
+		k.unibus.physwrite16(0777776, val)
 		return
 	case 0000005: // RESET
 		if curuser {
 			return
 		}
-		k.cons.clearterminal()
-		k.rk.rkreset()
+		k.unibus.cons.clearterminal()
+		k.unibus.rk.rkreset()
 		return
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
@@ -1088,21 +1086,21 @@ func (k *KB11) Reset() {
 	k.Input = make(chan uint8) // unix\n
 	curuser = false
 	prevuser = false
-	k.SR0 = 0
-	k.LKS = 1 << 7
-	for i := 0; i < len(k.Memory); i++ {
-		k.Memory[i] = 0
+	k.mmu.SR0 = 0
+	k.unibus.LKS = 1 << 7
+	for i := 0; i < len(k.unibus.Memory); i++ {
+		k.unibus.Memory[i] = 0
 	}
 	for i := 0; i < len(bootrom); i++ {
-		k.Memory[01000+i] = bootrom[i]
+		k.unibus.Memory[01000+i] = bootrom[i]
 	}
 	for i := 0; i < 16; i++ {
-		k.pages[i] = createpage(0, 0)
+		k.mmu.pages[i] = createpage(0, 0)
 	}
 	k.R[7] = 02002
-	k.cons.clearterminal()
-	k.cons.Input = k.Input
-	k.rk.rkreset()
+	k.unibus.cons.clearterminal()
+	k.unibus.cons.Input = k.Input
+	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
 }
