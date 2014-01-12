@@ -32,7 +32,7 @@ func (u *unibus) read16(a uint18) uint16 {
 	case a&0777770 == 0777560:
 		return uint16(u.cons.consread16(a))
 	case a&0777760 == 0777400:
-		return uint16(u.rk.rkread16(a))
+		return uint16(u.rk.read16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
 		return u.cpu.mmu.read16(a)
 	case a == 0776000:
@@ -103,7 +103,7 @@ func (u *unibus) write16(a uint18, v uint16) {
 	} else if (a & 0777770) == 0777560 {
 		u.cons.conswrite16(a, int(v))
 	} else if (a & 0777700) == 0777400 {
-		u.rk.rkwrite16(a, int(v))
+		u.rk.write16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
 		u.cpu.mmu.write16(a, v)
 	} else {

@@ -20,7 +20,7 @@ type RK05 struct {
 	unibus                                  *unibus
 }
 
-func (r *RK05) rkread16(a uint18) int {
+func (r *RK05) read16(a uint18) int {
 	switch a {
 	case 0777400:
 		return r.RKDS
@@ -44,14 +44,14 @@ func (r *RK05) rknotready() {
 	r.RKCS &= ^(1 << 7)
 }
 
-func (r *RK05) rkready() {
+func (r *RK05) ready() {
 	r.RKDS |= 1 << 6
 	r.RKCS |= 1 << 7
 }
 
 func (r *RK05) rkerror(code int) {
 	var msg string
-	r.rkready()
+	r.ready()
 	r.RKER |= code
 	r.RKCS |= (1 << 15) | (1 << 14)
 	switch code {
@@ -123,7 +123,7 @@ func (r *RK05) Step() {
 	}
 	if r.RKWC == 0 {
 		r.running = false
-		r.rkready()
+		r.ready()
 		if r.RKCS&(1<<6) != 0 {
 			interrupt(INTRK, 5)
 		}
@@ -142,7 +142,7 @@ func (r *RK05) rkgo() {
 	}
 }
 
-func (r *RK05) rkwrite16(a uint18, v int) {
+func (r *RK05) write16(a uint18, v int) {
 	switch a {
 	case 0777400:
 		break
