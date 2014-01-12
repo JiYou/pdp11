@@ -990,6 +990,8 @@ func (k *cpu) step() {
 	panic(trap{INTINVAL, "invalid instruction"})
 }
 
+func (c *cpu) SetPC(pc uint16) { c.R[7] = int(pc) }
+
 func (k *cpu) Reset() {
 	for i := 0; i < 7; i++ {
 		k.R[i] = 0
@@ -1009,7 +1011,6 @@ func (k *cpu) Reset() {
 	for i := 0; i < 16; i++ {
 		k.mmu.pages[i] = createpage(0, 0)
 	}
-	k.R[7] = 02002
 	k.unibus.cons.clearterminal()
 	k.unibus.cons.Input = k.Input
 	k.unibus.rk.rkreset()

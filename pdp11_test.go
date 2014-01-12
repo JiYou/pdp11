@@ -47,7 +47,8 @@ a.out
 func TestPDP(t *testing.T) {
 	for _, tt := range pdpTests {
 		pdp := New()
-		pdp.LoadBootrom(01000, BOOTRK05)
+		pdp.LoadBootrom(01000, BOOTRK05) // word addressed
+		pdp.SetPC(02002)                 // byte addressed
 		go func() {
 			c := pdp.cpu.Input
 			c <- 'u'
