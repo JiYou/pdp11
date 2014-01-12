@@ -17,7 +17,6 @@ type RK05 struct {
 	drive, sector, surface, cylinder, rkimg int
 	running                                 bool
 	rkdisk                                  []byte // rk0 disk image
-
 	*unibus
 }
 
@@ -145,10 +144,10 @@ func (r *RK05) rkgo() {
 
 func (r *RK05) rkwrite16(a uint18, v int) {
 	switch a {
-	//	case 0777400:
-	//		break
-	//	case 0777402:
-	//		break
+	case 0777400:
+		break
+	case 0777402:
+		break
 	case 0777404:
 		r.RKBA = (r.RKBA & 0xFFFF) | ((v & 060) << 12)
 		const BITS = 017517

@@ -9,7 +9,7 @@ type PDP1140 struct {
 }
 
 func (p *PDP1140) printstate() {
-	var cpu = p.cpu
+	var cpu = p.KB11
 	var R = cpu.R
 	fmt.Printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", R[0], R[1], R[2], R[3], R[4], R[5], R[6], R[7])
 	if prevuser {
@@ -77,14 +77,14 @@ func (p *PDP1140) Step() {
 	}
 
 	p.rk.Step()
-	p.cons.Step(p.cpu)
+	p.cons.Step()
 }
 
 func New() *PDP1140 {
 	var pdp PDP1140
-	pdp.mmu.cpu = &pdp.KB11
 	pdp.KB11.unibus = &pdp.unibus
-	pdp.unibus.KB11 = &pdp.KB11
+	pdp.unibus.cpu = &pdp.KB11
+	pdp.mmu.cpu = &pdp.KB11
 	pdp.unibus.rk.unibus = &pdp.unibus
 	pdp.unibus.rk.rkinit()
 	pdp.Reset()

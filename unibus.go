@@ -5,9 +5,9 @@ import "fmt"
 type unibus struct {
 	Memory [128 * 1024]uint16
 	LKS    uint16
-	*KB11
-	rk   RK05 // drive 0
-	cons Console
+	cpu    *KB11
+	rk     RK05 // drive 0
+	cons   Console
 }
 
 // uint18 represents a unibus 18 bit physical address
@@ -22,19 +22,19 @@ func (u *unibus) physread16(a uint18) uint16 {
 	case a == 0777546:
 		return u.LKS
 	case a == 0777570:
-		return 0 // 0173030
+		return 0173030
 	case a == 0777572:
-		return u.SR0
+		return u.cpu.mmu.SR0
 	case a == 0777576:
-		return u.SR2
+		return u.cpu.mmu.SR2
 	case a == 0777776:
-		return u.PS
+		return u.cpu.PS
 	case a&0777770 == 0777560:
 		return uint16(u.cons.consread16(a))
 	case a&0777760 == 0777400:
 		return uint16(u.rk.rkread16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
-		return u.mmuread16(a)
+		return u.cpu.mmu.mmuread16(a)
 	case a == 0776000:
 		panic("lolwut")
 	default:
@@ -105,7 +105,7 @@ func (u *unibus) physwrite16(a uint18, v uint16) {
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
-		u.mmuwrite16(a, v)
+		u.cpu.mmu.mmuwrite16(a, v)
 	} else {
 		panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 	}

@@ -59,7 +59,7 @@ func (c *Console) getchar() int {
 	return 0
 }
 
-func (c *Console) Step(k *KB11) {
+func (c *Console) Step() {
 	if c.ready {
 		select {
 		case v, ok := <-c.Input:
