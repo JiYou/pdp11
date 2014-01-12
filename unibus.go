@@ -7,6 +7,7 @@ type unibus struct {
 	LKS    uint16
 	cpu    *cpu
 	rk     RK05 // drive 0
+	tm     TM11 // TM11/TU10 controller
 	cons   Console
 }
 
@@ -31,6 +32,8 @@ func (u *unibus) read16(a uint18) uint16 {
 		return u.cpu.PS
 	case a&0777770 == 0777560:
 		return uint16(u.cons.consread16(a))
+	case a&0777760 == 0772520:
+		return u.tm.read16(a)
 	case a&0777760 == 0777400:
 		return u.rk.read16(a)
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
@@ -102,6 +105,8 @@ func (u *unibus) write16(a uint18, v uint16) {
 		u.cpu.mmu.SR0 = v
 	} else if (a & 0777770) == 0777560 {
 		u.cons.conswrite16(a, int(v))
+	} else if (a & 0777760) == 0772520 {
+		u.tm.write16(a, v)
 	} else if (a & 0777700) == 0777400 {
 		u.rk.write16(a, v)
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
