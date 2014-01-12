@@ -12,10 +12,9 @@ const (
 const pr = false // debug
 
 var (
-	curuser, prevuser bool
-	clkcounter        int
-	waiting           = false
-	interrupts        []intr
+	clkcounter int
+	waiting    = false
+	interrupts []intr
 )
 
 type intr struct{ vec, pri int }
@@ -73,71 +72,72 @@ func xor16(x, y uint16) uint16 {
 	return z
 }
 
-type KB11 struct {
-	R        [8]int // registers
-	PS       uint16 // processor status
-	PC       uint16 // address of current instruction
-	KSP, USP uint16 // kernel and user stack pointer
+type cpu struct {
+	R                 [8]int // registers
+	PS                uint16 // processor status
+	PC                uint16 // address of current instruction
+	KSP, USP          uint16 // kernel and user stack pointer
+	curuser, prevuser bool
 
 	Input  chan uint8
 	unibus *unibus
 	mmu    mmu
 }
 
-func (k *KB11) switchmode(newm bool) {
-	prevuser = curuser
-	curuser = newm
-	if prevuser {
+func (k *cpu) switchmode(newm bool) {
+	k.prevuser = k.curuser
+	k.curuser = newm
+	if k.prevuser {
 		k.USP = uint16(k.R[6])
 	} else {
 		k.KSP = uint16(k.R[6])
 	}
-	if curuser {
+	if k.curuser {
 		k.R[6] = int(k.USP)
 	} else {
 		k.R[6] = int(k.KSP)
 	}
 	k.PS &= 0007777
-	if curuser {
+	if k.curuser {
 		k.PS |= (1 << 15) | (1 << 14)
 	}
-	if prevuser {
+	if k.prevuser {
 		k.PS |= (1 << 13) | (1 << 12)
 	}
 }
 
-func (k *KB11) read8(a uint16) uint16 {
-	addr := k.mmu.decode(a, false, curuser)
+func (k *cpu) read8(a uint16) uint16 {
+	addr := k.mmu.decode(a, false, k.curuser)
 	return k.unibus.physread8(addr)
 }
 
-func (k *KB11) read16(a uint16) uint16 {
-	addr := k.mmu.decode(a, false, curuser)
+func (k *cpu) read16(a uint16) uint16 {
+	addr := k.mmu.decode(a, false, k.curuser)
 	return k.unibus.physread16(addr)
 }
 
-func (k *KB11) write8(a, v uint16) {
-	addr := k.mmu.decode(a, true, curuser)
+func (k *cpu) write8(a, v uint16) {
+	addr := k.mmu.decode(a, true, k.curuser)
 	k.unibus.physwrite8(addr, v)
 }
 
-func (k *KB11) write16(a, v uint16) {
-	addr := k.mmu.decode(a, true, curuser)
+func (k *cpu) write16(a, v uint16) {
+	addr := k.mmu.decode(a, true, k.curuser)
 	k.unibus.physwrite16(addr, v)
 }
 
-func (k *KB11) fetch16() uint16 {
+func (k *cpu) fetch16() uint16 {
 	val := k.read16(uint16(k.R[7]))
 	k.R[7] += 2
 	return val
 }
 
-func (k *KB11) push(v uint16) {
+func (k *cpu) push(v uint16) {
 	k.R[6] -= 2
 	k.write16(uint16(k.R[6]), v)
 }
 
-func (k *KB11) pop() uint16 {
+func (k *cpu) pop() uint16 {
 	val := k.read16(uint16(k.R[6]))
 	k.R[6] += 2
 	return val
@@ -171,66 +171,7 @@ func interrupt(vec, pri int) {
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
 }
 
-func (p *PDP1140) handleinterrupt(vec int) {
-	defer func() {
-		t := recover()
-		switch t := t.(type) {
-		case trap:
-			p.trapat(t.num, t.msg)
-		case nil:
-			break
-		default:
-			panic(t)
-		}
-		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = p.Memory[(vec>>1)+1]
-		if prevuser {
-			p.cpu.PS |= (1 << 13) | (1 << 12)
-		}
-		waiting = false
-	}()
-	prev := p.cpu.PS
-	p.cpu.switchmode(false)
-	p.cpu.push(prev)
-	p.cpu.push(uint16(p.cpu.R[7]))
-}
-
-func (p *PDP1140) trapat(vec int, msg string) {
-	var prev uint16
-	defer func() {
-		t := recover()
-		switch t := t.(type) {
-		case trap:
-			fmt.Println("red stack trap!")
-			p.Memory[0] = uint16(p.cpu.R[7])
-			p.Memory[1] = prev
-			vec = 4
-			panic("fatal")
-		case nil:
-			break
-		default:
-			panic(t)
-		}
-		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = p.Memory[(vec>>1)+1]
-		if prevuser {
-			p.cpu.PS |= (1 << 13) | (1 << 12)
-		}
-		waiting = false
-	}()
-	if vec&1 == 1 {
-		panic("Thou darst calling trapat() with an odd vector number?")
-	}
-	fmt.Printf("trap %06o occured: %s\n", vec, msg)
-	p.printstate()
-
-	prev = p.cpu.PS
-	p.cpu.switchmode(false)
-	p.cpu.push(prev)
-	p.cpu.push(uint16(p.cpu.R[7]))
-}
-
-func (k *KB11) aget(v int, l int) int {
+func (k *cpu) aget(v int, l int) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
@@ -259,7 +200,7 @@ func (k *KB11) aget(v int, l int) int {
 	return int(addr)
 }
 
-func (k *KB11) memread(a, l int) uint16 {
+func (k *cpu) memread(a, l int) uint16 {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -274,7 +215,7 @@ func (k *KB11) memread(a, l int) uint16 {
 	return k.read8(uint16(a))
 }
 
-func (k *KB11) memwrite(a, l int, v uint16) {
+func (k *cpu) memwrite(a, l int, v uint16) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -290,7 +231,7 @@ func (k *KB11) memwrite(a, l int, v uint16) {
 	}
 }
 
-func (k *KB11) branch(o int) {
+func (k *cpu) branch(o int) {
 	//printstate()
 	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
@@ -299,7 +240,7 @@ func (k *KB11) branch(o int) {
 	k.R[7] += o
 }
 
-func (k *KB11) step() {
+func (k *cpu) step() {
 	var max, maxp, msb uint16
 	if waiting {
 		select {
@@ -312,7 +253,7 @@ func (k *KB11) step() {
 		return
 	}
 	k.PC = uint16(k.R[7])
-	ia := k.mmu.decode(k.PC, false, curuser)
+	ia := k.mmu.decode(k.PC, false, k.curuser)
 	k.R[7] += 2
 	instr := int(k.unibus.physread16(ia))
 	d := instr & 077
@@ -870,11 +811,11 @@ func (k *KB11) step() {
 		da := k.aget(d, 2)
 		switch {
 		case da == -7:
-			// val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
-			if curuser == prevuser {
+			// val = (curuser == k.prevuser) ? R[6] : (prevuser ? k.USP : KSP);
+			if k.curuser == k.prevuser {
 				val = uint16(k.R[6])
 			} else {
-				if prevuser {
+				if k.prevuser {
 					val = k.USP
 				} else {
 					val = k.KSP
@@ -883,7 +824,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MFPI instruction")
 		default:
-			val = k.unibus.physread16(k.mmu.decode(uint16(da), false, prevuser))
+			val = k.unibus.physread16(k.mmu.decode(uint16(da), false, k.prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
@@ -900,10 +841,10 @@ func (k *KB11) step() {
 		val := uint16(k.pop())
 		switch {
 		case da == -7:
-			if curuser == prevuser {
+			if k.curuser == k.prevuser {
 				k.R[6] = int(val)
 			} else {
-				if prevuser {
+				if k.prevuser {
 					k.USP = val
 				} else {
 					k.KSP = val
@@ -912,7 +853,7 @@ func (k *KB11) step() {
 		case da < 0:
 			panic("invalid MTPI instrution")
 		default:
-			sa := k.mmu.decode(uint16(da), true, prevuser)
+			sa := k.mmu.decode(uint16(da), true, k.prevuser)
 			k.unibus.physwrite16(sa, val)
 		}
 		k.PS &= 0xFFF0
@@ -1023,7 +964,7 @@ func (k *KB11) step() {
 		k.push(uint16(k.R[7]))
 		k.R[7] = int(k.unibus.Memory[vec>>1])
 		k.PS = k.unibus.Memory[(vec>>1)+1]
-		if prevuser {
+		if k.prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
 		return
@@ -1038,14 +979,14 @@ func (k *KB11) step() {
 	}
 	switch instr {
 	case 0000000: // HALT
-		if curuser {
+		if k.curuser {
 			break
 		}
 		fmt.Println("HALT")
 		panic("HALT")
 		return
 	case 0000001: // WAIT
-		if curuser {
+		if k.curuser {
 			break
 		}
 		//println("WAIT")
@@ -1056,14 +997,14 @@ func (k *KB11) step() {
 	case 0000006: // RTT
 		k.R[7] = int(k.pop())
 		val := k.pop()
-		if curuser {
+		if k.curuser {
 			val &= 047
 			val |= k.PS & 0177730
 		}
 		k.unibus.physwrite16(0777776, val)
 		return
 	case 0000005: // RESET
-		if curuser {
+		if k.curuser {
 			return
 		}
 		k.unibus.cons.clearterminal()
@@ -1075,7 +1016,7 @@ func (k *KB11) step() {
 	panic(trap{INTINVAL, "invalid instruction"})
 }
 
-func (k *KB11) Reset() {
+func (k *cpu) Reset() {
 	for i := 0; i < 7; i++ {
 		k.R[i] = 0
 	}
@@ -1084,8 +1025,8 @@ func (k *KB11) Reset() {
 	k.KSP = 0
 	k.USP = 0
 	k.Input = make(chan uint8) // unix\n
-	curuser = false
-	prevuser = false
+	k.curuser = false
+	k.prevuser = false
 	k.mmu.SR0 = 0
 	k.unibus.LKS = 1 << 7
 	for i := 0; i < len(k.unibus.Memory); i++ {

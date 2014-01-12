@@ -4,7 +4,7 @@ import "fmt"
 
 type mmu struct {
 	SR0, SR2 uint16
-	cpu      *KB11
+	cpu      *cpu
 	pages    [16]page
 }
 

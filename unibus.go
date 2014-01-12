@@ -5,7 +5,7 @@ import "fmt"
 type unibus struct {
 	Memory [128 * 1024]uint16
 	LKS    uint16
-	cpu    *KB11
+	cpu    *cpu
 	rk     RK05 // drive 0
 	cons   Console
 }
@@ -87,10 +87,10 @@ func (u *unibus) physwrite16(a uint18, v uint16) {
 		}
 		switch (v >> 12) & 3 {
 		case 0:
-			prevuser = false
+			u.cpu.prevuser = false
 			break
 		case 3:
-			prevuser = true
+			u.cpu.prevuser = true
 			break
 		default:
 			panic("invalid mode")
