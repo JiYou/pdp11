@@ -20,20 +20,20 @@ type RK05 struct {
 	unibus                                  *unibus
 }
 
-func (r *RK05) read16(a uint18) int {
+func (r *RK05) read16(a uint18) uint16 {
 	switch a {
 	case 0777400:
-		return r.RKDS
+		return uint16(r.RKDS)
 	case 0777402:
-		return r.RKER
+		return uint16(r.RKER)
 	case 0777404:
-		return r.RKCS | (r.RKBA&0x30000)>>12
+		return uint16(r.RKCS | (r.RKBA&0x30000)>>12)
 	case 0777406:
-		return r.RKWC
+		return uint16(r.RKWC)
 	case 0777410:
-		return r.RKBA & 0xFFFF
+		return uint16(r.RKBA & 0xFFFF)
 	case 0777412:
-		return (r.sector) | (r.surface << 4) | (r.cylinder << 5) | (r.drive << 13)
+		return uint16((r.sector) | (r.surface << 4) | (r.cylinder << 5) | (r.drive << 13))
 	default:
 		panic("invalid read")
 	}
@@ -142,8 +142,8 @@ func (r *RK05) rkgo() {
 	}
 }
 
-func (r *RK05) write16(a uint18, v int) {
-	switch a {
+func (r *RK05) write16(a uint18, v uint16) {
+	switch v := int(v); a {
 	case 0777400:
 		break
 	case 0777402:
