@@ -49,7 +49,7 @@ func xor16(x, y uint16) uint16 {
 type cpu struct {
 	R                 [8]int // registers
 	PS                uint16 // processor status
-	PC                uint16 // address of current instruction
+	pc                uint16 // address of currently executing instructoin
 	KSP, USP          uint16 // kernel and user stack pointer
 	curuser, prevuser bool
 
@@ -226,8 +226,8 @@ func (k *cpu) step() {
 		}
 		return
 	}
-	k.PC = uint16(k.R[7])
-	ia := k.mmu.decode(k.PC, false, k.curuser)
+	k.pc = uint16(k.R[7])
+	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := int(k.unibus.read16(ia))
 	d := instr & 077
@@ -997,7 +997,6 @@ func (k *cpu) Reset() {
 		k.R[i] = 0
 	}
 	k.PS = 0
-	k.PC = 0
 	k.KSP = 0
 	k.USP = 0
 	k.Input = make(chan uint8) // unix\n

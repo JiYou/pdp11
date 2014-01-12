@@ -85,7 +85,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 		if user {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
-		m.SR2 = m.cpu.PC
+		m.SR2 = m.cpu.pc
 		panic(trap{INTFAULT, fmt.Sprintf("write to read-only page %06o", a)})
 	}
 	if !p.read {
@@ -94,7 +94,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 		if user {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
-		m.SR2 = m.cpu.PC
+		m.SR2 = m.cpu.pc
 		panic(trap{INTFAULT, fmt.Sprintf("read from no-access page %06o", a)})
 	}
 	block := a >> 6 & 0177
@@ -106,7 +106,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 		if user {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
-		m.SR2 = m.cpu.PC
+		m.SR2 = m.cpu.pc
 		panic(trap{INTFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len)})
 	}
 	if w {

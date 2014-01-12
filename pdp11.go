@@ -68,9 +68,9 @@ func (p *PDP1140) printstate() {
 	} else {
 		fmt.Print(" ")
 	}
-	ia := cpu.mmu.decode(cpu.PC, false, cpu.curuser)
+	ia := cpu.mmu.decode(cpu.pc, false, cpu.curuser)
 	instr := p.unibus.read16(ia)
-	fmt.Printf("]  instr %06o: %06o   %s\n", cpu.PC, instr, p.disasm(ia))
+	fmt.Printf("]  instr %06o: %06o   %s\n", cpu.pc, instr, p.disasm(ia))
 }
 
 // Step steps the CPU and all perpherals once.
