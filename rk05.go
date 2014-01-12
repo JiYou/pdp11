@@ -13,9 +13,11 @@ const (
 )
 
 type RK05 struct {
-	RKBA, RKDS, RKER, RKCS, RKWC, drive, sector, surface, cylinder, rkimg int
-	running                                                               bool
-	rkdisk                                                                []byte // rk0 disk image
+	RKBA, RKDS, RKER, RKCS, RKWC            int
+	drive, sector, surface, cylinder, rkimg int
+	running                                 bool
+	rkdisk                                  []byte // rk0 disk image
+	unibus                                  *unibus
 }
 
 func (r *RK05) rkread16(a uint18) int {
@@ -97,11 +99,11 @@ func (r *RK05) Step() {
 	pos := (r.cylinder*24 + r.surface*12 + r.sector) * 512
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
 		if w {
-			val := memory[r.RKBA>>1]
+			val := r.unibus.Memory[r.RKBA>>1]
 			r.rkdisk[pos] = byte(val & 0xFF)
 			r.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
+			r.unibus.Memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
 		}
 		r.RKBA += 2
 		pos += 2
@@ -142,10 +144,10 @@ func (r *RK05) rkgo() {
 
 func (r *RK05) rkwrite16(a uint18, v int) {
 	switch a {
-	//	case 0777400:
-	//		break
-	//	case 0777402:
-	//		break
+	case 0777400:
+		break
+	case 0777402:
+		break
 	case 0777404:
 		r.RKBA = (r.RKBA & 0xFFFF) | ((v & 060) << 12)
 		const BITS = 017517

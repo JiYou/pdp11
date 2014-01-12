@@ -1,6 +1,7 @@
 package pdp11
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -58,7 +59,7 @@ func (c *Console) getchar() int {
 	return 0
 }
 
-func (c *Console) Step(k *KB11) {
+func (c *Console) Step() {
 	if c.ready {
 		select {
 		case v, ok := <-c.Input:
@@ -92,7 +93,7 @@ func (c *Console) consread16(a uint18) int {
 	case 0777566:
 		return 0
 	default:
-		panic("read from invalid address " + ostr(a, 6))
+		panic(fmt.Sprintf("read from invalid address %06o", a))
 	}
 }
 
@@ -114,6 +115,6 @@ func (c *Console) conswrite16(a uint18, v int) {
 		c.TPB = v & 0xff
 		c.TPS &= 0xff7f
 	default:
-		panic("write to invalid address " + ostr(a, 6))
+		panic(fmt.Sprintf("write to invalid address %06o", a))
 	}
 }
