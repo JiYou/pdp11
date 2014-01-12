@@ -43,7 +43,7 @@ func (p *PDP1140) printstate() {
 		fmt.Print(" ")
 	}
 	ia := cpu.mmu.decode(cpu.PC, false, cpu.curuser)
-	instr := p.physread16(ia)
+	instr := p.unibus.read16(ia)
 	fmt.Printf("]  instr %06o: %06o   %s\n", cpu.PC, instr, p.disasm(ia))
 }
 

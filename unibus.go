@@ -13,7 +13,7 @@ type unibus struct {
 // uint18 represents a unibus 18 bit physical address
 type uint18 uint32
 
-func (u *unibus) physread16(a uint18) uint16 {
+func (u *unibus) read16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, fmt.Sprintf("read from odd address %06o", a)})
@@ -42,8 +42,8 @@ func (u *unibus) physread16(a uint18) uint16 {
 	}
 }
 
-func (u *unibus) physread8(a uint18) uint16 {
-	val := u.physread16(a & ^uint18(1))
+func (u *unibus) read8(a uint18) uint16 {
+	val := u.read16(a & ^uint18(1))
 	if a&1 != 0 {
 		return val >> 8
 	}
@@ -61,9 +61,9 @@ func (u *unibus) physwrite8(a uint18, v uint16) {
 		}
 	} else {
 		if a&1 == 1 {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF)|(v&0xFF)<<8)
+			u.physwrite16(a&^1, (u.read16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			u.physwrite16(a&^1, (u.physread16(a)&0xFF00)|(v&0xFF))
+			u.physwrite16(a&^1, (u.read16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }

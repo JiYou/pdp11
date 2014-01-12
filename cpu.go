@@ -108,12 +108,12 @@ func (k *cpu) switchmode(newm bool) {
 
 func (k *cpu) read8(a uint16) uint16 {
 	addr := k.mmu.decode(a, false, k.curuser)
-	return k.unibus.physread8(addr)
+	return k.unibus.read8(addr)
 }
 
 func (k *cpu) read16(a uint16) uint16 {
 	addr := k.mmu.decode(a, false, k.curuser)
-	return k.unibus.physread16(addr)
+	return k.unibus.read16(addr)
 }
 
 func (k *cpu) write8(a, v uint16) {
@@ -255,7 +255,7 @@ func (k *cpu) step() {
 	k.PC = uint16(k.R[7])
 	ia := k.mmu.decode(k.PC, false, k.curuser)
 	k.R[7] += 2
-	instr := int(k.unibus.physread16(ia))
+	instr := int(k.unibus.read16(ia))
 	d := instr & 077
 	s := (instr & 07700) >> 6
 	l := 2 - (instr >> 15)
@@ -824,7 +824,7 @@ func (k *cpu) step() {
 		case da < 0:
 			panic("invalid MFPI instruction")
 		default:
-			val = k.unibus.physread16(k.mmu.decode(uint16(da), false, k.prevuser))
+			val = k.unibus.read16(k.mmu.decode(uint16(da), false, k.prevuser))
 		}
 		k.push(val)
 		k.PS &= 0xFFF0
