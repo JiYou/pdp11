@@ -26,7 +26,7 @@ func createpage(par, pdr uint16) page {
 	}
 }
 
-func (m *mmu) mmuread16(a uint18) uint16 {
+func (m *mmu) read16(a uint18) uint16 {
 	i := ((a & 017) >> 1)
 	if (a >= 0772300) && (a < 0772320) {
 		return m.pages[i].pdr
@@ -43,7 +43,7 @@ func (m *mmu) mmuread16(a uint18) uint16 {
 	panic(trap{INTBUS, fmt.Sprintf("invalid read from %06o", a)})
 }
 
-func (m *mmu) mmuwrite16(a uint18, v uint16) {
+func (m *mmu) write16(a uint18, v uint16) {
 	i := ((a & 017) >> 1)
 	if (a >= 0772300) && (a < 0772320) {
 		m.pages[i] = createpage(m.pages[i].par, v)

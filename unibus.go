@@ -34,7 +34,7 @@ func (u *unibus) read16(a uint18) uint16 {
 	case a&0777760 == 0777400:
 		return uint16(u.rk.rkread16(a))
 	case a&0777600 == 0772200 || (a&0777600) == 0777600:
-		return u.cpu.mmu.mmuread16(a)
+		return u.cpu.mmu.read16(a)
 	case a == 0776000:
 		panic("lolwut")
 	default:
@@ -50,7 +50,7 @@ func (u *unibus) read8(a uint18) uint16 {
 	return val & 0xFF
 }
 
-func (u *unibus) physwrite8(a uint18, v uint16) {
+func (u *unibus) write8(a uint18, v uint16) {
 	if a < 0760000 {
 		if a&1 == 1 {
 			u.Memory[a>>1] &= 0xFF
@@ -61,14 +61,14 @@ func (u *unibus) physwrite8(a uint18, v uint16) {
 		}
 	} else {
 		if a&1 == 1 {
-			u.physwrite16(a&^1, (u.read16(a)&0xFF)|(v&0xFF)<<8)
+			u.write16(a&^1, (u.read16(a)&0xFF)|(v&0xFF)<<8)
 		} else {
-			u.physwrite16(a&^1, (u.read16(a)&0xFF00)|(v&0xFF))
+			u.write16(a&^1, (u.read16(a)&0xFF00)|(v&0xFF))
 		}
 	}
 }
 
-func (u *unibus) physwrite16(a uint18, v uint16) {
+func (u *unibus) write16(a uint18, v uint16) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, fmt.Sprintf("write to odd address %06o", a)})
 	}
@@ -105,7 +105,7 @@ func (u *unibus) physwrite16(a uint18, v uint16) {
 	} else if (a & 0777700) == 0777400 {
 		u.rk.rkwrite16(a, int(v))
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
-		u.cpu.mmu.mmuwrite16(a, v)
+		u.cpu.mmu.write16(a, v)
 	} else {
 		panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 	}

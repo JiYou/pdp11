@@ -118,12 +118,12 @@ func (k *cpu) read16(a uint16) uint16 {
 
 func (k *cpu) write8(a, v uint16) {
 	addr := k.mmu.decode(a, true, k.curuser)
-	k.unibus.physwrite8(addr, v)
+	k.unibus.write8(addr, v)
 }
 
 func (k *cpu) write16(a, v uint16) {
 	addr := k.mmu.decode(a, true, k.curuser)
-	k.unibus.physwrite16(addr, v)
+	k.unibus.write16(addr, v)
 }
 
 func (k *cpu) fetch16() uint16 {
@@ -854,7 +854,7 @@ func (k *cpu) step() {
 			panic("invalid MTPI instrution")
 		default:
 			sa := k.mmu.decode(uint16(da), true, k.prevuser)
-			k.unibus.physwrite16(sa, val)
+			k.unibus.write16(sa, val)
 		}
 		k.PS &= 0xFFF0
 		k.PS |= FLAGC
@@ -1001,7 +1001,7 @@ func (k *cpu) step() {
 			val &= 047
 			val |= k.PS & 0177730
 		}
-		k.unibus.physwrite16(0777776, val)
+		k.unibus.write16(0777776, val)
 		return
 	case 0000005: // RESET
 		if k.curuser {
