@@ -38,8 +38,8 @@ func (c *Console) addchar(char int) {
 		c.TKB = 4
 	case 19:
 		c.TKB = 034
-	case 46:
-		c.TKB = 127
+	//case 46:
+	//	c.TKB = 127
 	default:
 		c.TKB = char
 	}

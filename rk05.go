@@ -97,6 +97,9 @@ func (r *RK05) Step() {
 		r.rkerror(RKNXS)
 	}
 	pos := (r.cylinder*24 + r.surface*12 + r.sector) * 512
+	if pos >= len(r.rkdisk) {
+		panic(fmt.Sprintf("pos outside rkdisk length, pos: %v, len %v", pos, len(r.rkdisk)))
+	}
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
 		if w {
 			val := r.unibus.Memory[r.RKBA>>1]
@@ -180,9 +183,10 @@ func (r *RK05) rkreset() {
 }
 
 func (r *RK05) rkinit() {
-	var err error
-	r.rkdisk, err = ioutil.ReadFile("rk0")
+	buf, err := ioutil.ReadFile("rk0")
 	if err != nil {
 		panic(err)
 	}
+	r.rkdisk = make([]byte, imglen)
+	copy(r.rkdisk, buf)
 }
