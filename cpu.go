@@ -145,12 +145,12 @@ func interrupt(vec, pri int) {
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
 }
 
-func (k *cpu) aget(v int, l int) int {
+func (k *cpu) aget(v, l uint8) int {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -(v + 1)
+		return -int(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
@@ -159,9 +159,9 @@ func (k *cpu) aget(v int, l int) int {
 		addr = uint16(k.R[v&7])
 	case 020:
 		addr = uint16(k.R[v&7])
-		k.R[v&7] += l
+		k.R[v&7] += int(l)
 	case 040:
-		k.R[v&7] -= l
+		k.R[v&7] -= int(l)
 		addr = uint16(k.R[v&7])
 	case 060:
 		addr = k.fetch16()
@@ -174,7 +174,7 @@ func (k *cpu) aget(v int, l int) int {
 	return int(addr)
 }
 
-func (k *cpu) memread(a, l int) uint16 {
+func (k *cpu) memread(a int, l uint8) uint16 {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -189,7 +189,7 @@ func (k *cpu) memread(a, l int) uint16 {
 	return k.read8(uint16(a))
 }
 
-func (k *cpu) memwrite(a, l int, v uint16) {
+func (k *cpu) memwrite(a int, l uint8, v uint16) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
@@ -206,7 +206,6 @@ func (k *cpu) memwrite(a, l int, v uint16) {
 }
 
 func (k *cpu) branch(o int) {
-	//printstate()
 	if o&0x80 == 0x80 {
 		o = -(((^o) + 1) & 0xFF)
 	}
@@ -230,9 +229,9 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := int(k.unibus.read16(ia))
-	d := instr & 077
-	s := (instr & 07700) >> 6
-	l := 2 - (instr >> 15)
+	s := uint8((instr & 07700) >> 6)
+	d := uint8(instr & 077)
+	l := uint8(2 - (instr >> 15))
 	o := instr & 0xFF
 	if l == 2 {
 		max = 0xFFFF
