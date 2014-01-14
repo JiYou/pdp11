@@ -9,7 +9,7 @@ const (
 	FLAGC = 1
 )
 
-const pr = false // debug
+const pr = true // debug
 
 var (
 	clkcounter int
