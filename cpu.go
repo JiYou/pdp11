@@ -345,7 +345,7 @@ func (k *cpu) step() {
 		if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
 			k.PS |= FLAGV
 		}
-		if val1+val2 >= 0xFFFF {
+		if int(val1)+int(val2) >= 0xFFFF {
 			k.PS |= FLAGC
 		}
 		k.memwrite(da, 2, val)
