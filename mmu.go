@@ -94,7 +94,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 		m.SR2 = m.cpu.pc
 		panic(trap{INTFAULT, fmt.Sprintf("read from no-access page %06o", a)})
 	}
-	block := a >> 6 & 0177
+	block := (a >> 6) & 0177
 	disp := uint18(a & 077)
 	if p.ed() && block < p.len() || !p.ed() && block > p.len() {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
@@ -109,5 +109,5 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return (uint18(block+p.addr()) << 6) + disp
+	return ((uint18(block) + uint18(p.addr())) << 6) + disp
 }
