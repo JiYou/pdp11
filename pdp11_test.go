@@ -35,7 +35,7 @@ var pdpTests = []struct {
 chdir /usr/sys/conf
 cc mkconf.c
 mv a.out mkconf
-./a.out
+./mkconf
 `, 5 * N},
 	{`
 ed TEST.C

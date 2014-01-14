@@ -101,6 +101,9 @@ func (p *PDP1140) Step() {
 			interrupt(INTCLOCK, 6)
 		}
 	}
+	if pr {
+		p.printstate()
+	}
 
 	p.rk.Step()
 	p.cons.Step()

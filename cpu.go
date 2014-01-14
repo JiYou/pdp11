@@ -174,34 +174,34 @@ func (k *cpu) aget(v, l uint8) int {
 	return int(addr)
 }
 
-func (k *cpu) memread(a int, l uint8) uint16 {
+func (k *cpu) memread(a int, l uint8) int {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
-			return uint16(k.R[r&7])
+			return k.R[r&7]
 		} else {
-			return uint16(k.R[r&7]) & 0xFF
+			return k.R[r&7] & 0xFF
 		}
 	}
 	if l == 2 {
-		return k.read16(uint16(a))
+		return int(k.read16(uint16(a)))
 	}
-	return k.read8(uint16(a))
+	return int(k.read8(uint16(a)))
 }
 
-func (k *cpu) memwrite(a int, l uint8, v uint16) {
+func (k *cpu) memwrite(a int, l uint8, v int) {
 	if a < 0 {
 		r := uint8(-(a + 1))
 		if l == 2 {
-			k.R[r&7] = int(v)
+			k.R[r&7] = v
 		} else {
 			k.R[r&7] &= 0xFF00
-			k.R[r&7] |= int(v)
+			k.R[r&7] |= v
 		}
 	} else if l == 2 {
-		k.write16(uint16(a), v)
+		k.write16(uint16(a), uint16(v))
 	} else {
-		k.write8(uint16(a), v)
+		k.write8(uint16(a), uint16(v))
 	}
 }
 
@@ -214,7 +214,7 @@ func (k *cpu) branch(o int) {
 }
 
 func (k *cpu) step() {
-	var max, maxp, msb uint16
+	var max, maxp, msb int
 	if waiting {
 		select {
 		case v, ok := <-k.unibus.cons.Input:
@@ -503,7 +503,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0074000: // XOR
-		val1 := uint16(k.R[s&7])
+		val1 := k.R[s&7]
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := val1 ^ val2
@@ -676,7 +676,7 @@ func (k *cpu) step() {
 		if !(val&max != 0) {
 			k.PS |= FLAGZ
 		}
-		if xor16(val&1, val&(max+1)) != 0 {
+		if xor(val&1, val&(max+1)) != 0 {
 			k.PS |= FLAGV
 		}
 		val >>= 1
@@ -714,7 +714,7 @@ func (k *cpu) step() {
 		if val&msb == msb {
 			k.PS |= FLAGN
 		}
-		if xor16(val&msb, val&1) != 0 {
+		if xor(val&msb, val&1) != 0 {
 			k.PS |= FLAGV
 		}
 		val = (val & msb) | (val >> 1)
