@@ -131,6 +131,9 @@ func (p *PDP1140) handleinterrupt(vec int) {
 }
 
 func (p *PDP1140) trapat(vec int, msg string) {
+	fmt.Printf("trap %06o occured: %s\n", vec, msg)
+	p.printstate()
+
 	var prev uint16
 	defer func() {
 		t := recover()
@@ -156,9 +159,6 @@ func (p *PDP1140) trapat(vec int, msg string) {
 	if vec&1 == 1 {
 		panic("Thou darst calling trapat() with an odd vector number?")
 	}
-	fmt.Printf("trap %06o occured: %s\n", vec, msg)
-	p.printstate()
-
 	prev = p.cpu.PS
 	p.cpu.switchmode(false)
 	p.cpu.push(prev)
