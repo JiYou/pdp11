@@ -9,20 +9,19 @@ type mmu struct {
 }
 
 type page struct {
-	par, pdr        uint16
-	addr, len       uint16
-	read, write, ed bool
+	par, pdr uint16
 }
+
+func (p *page) read() bool   { return p.pdr&2 == 2 }
+func (p *page) write() bool  { return p.pdr&6 == 6 }
+func (p *page) ed() bool     { return p.pdr&8 == 8 }
+func (p *page) addr() uint16 { return p.par & 07777 }
+func (p *page) len() uint16  { return (p.pdr >> 8) & 0x7f }
 
 func createpage(par, pdr uint16) page {
 	return page{
-		par:   par,
-		pdr:   pdr,
-		addr:  par & 07777,
-		len:   pdr >> 8 & 0x7F,
-		read:  (pdr & 2) == 2,
-		write: (pdr & 6) == 6,
-		ed:    (pdr & 8) == 8,
+		par: par,
+		pdr: pdr,
 	}
 }
 
@@ -65,21 +64,19 @@ func (m *mmu) write16(a uint18, v uint16) {
 }
 
 func (m *mmu) decode(a uint16, w, user bool) uint18 {
-	var p page
 	if !(m.SR0&1 == 1) {
-		if a := uint18(a); a >= 0170000 {
+		a := uint18(a)
+		if a >= 0170000 {
 			a += 0600000
-			return a
-		} else {
-			return a
 		}
+		return a
 	}
+	offset := a >> 13
 	if user {
-		p = m.pages[(a>>13)+8]
-	} else {
-		p = m.pages[(a >> 13)]
+		offset += 8
 	}
-	if w && !p.write {
+	p := m.pages[offset]
+	if w && !p.write() {
 		m.SR0 = (1 << 13) | 1
 		m.SR0 |= a >> 12 & ^uint16(1)
 		if user {
@@ -88,7 +85,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 		m.SR2 = m.cpu.pc
 		panic(trap{INTFAULT, fmt.Sprintf("write to read-only page %06o", a)})
 	}
-	if !p.read {
+	if !p.read() {
 		m.SR0 = (1 << 15) | 1
 		m.SR0 |= (a >> 12) & ^uint16(1)
 		if user {
@@ -99,7 +96,7 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 	}
 	block := a >> 6 & 0177
 	disp := uint18(a & 077)
-	if p.ed && block < p.len || !p.ed && block > p.len {
+	if p.ed() && block < p.len() || !p.ed() && block > p.len() {
 		//if(p.ed ? (block < p.len) : (block > p.len)) {
 		m.SR0 = (1 << 14) | 1
 		m.SR0 |= (a >> 12) & ^uint16(1)
@@ -107,10 +104,10 @@ func (m *mmu) decode(a uint16, w, user bool) uint18 {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
 		m.SR2 = m.cpu.pc
-		panic(trap{INTFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len)})
+		panic(trap{INTFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len())})
 	}
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return (uint18(block+p.addr) << 6) + disp
+	return (uint18(block+p.addr()) << 6) + disp
 }

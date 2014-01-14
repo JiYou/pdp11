@@ -26,10 +26,17 @@ var pdpTests = []struct {
 	cycles int
 }{
 	//	{"STTY -LCASE\n", N},
-	{"\ndate\n", N},    // processor loops
-	{"\nls /bin\n", N}, // read from odd address
-	{"\nwho\n", N},     // read from no-access page 01002
-	{"\ncat /etc/passwd\n", N},
+	//	{"\ndate\n", N},    // processor loops
+	//	{"\nls /bin\n", N}, // read from odd address
+	//	{"\nwho\n", N},     // read from no-access page 01002
+	//	{"\ncat /etc/passwd\n", N},
+	{`
+
+chdir /usr/sys/conf
+cc mkconf.c
+mv a.out mkconf
+./a.out
+`, 5 * N},
 	{`
 ed TEST.C
 a
@@ -39,9 +46,9 @@ printf("Hello, world!\n");
 .
 w
 q
-cc test
-a.out
-`, 2 * N},
+cc test.c
+./a.out
+`, 5 * N},
 }
 
 func TestPDP(t *testing.T) {
