@@ -232,7 +232,6 @@ func (k *cpu) step() {
 	s := uint8((instr & 07700) >> 6)
 	d := uint8(instr & 077)
 	l := uint8(2 - (instr >> 15))
-	o := instr & 0xFF
 	if l == 2 {
 		max = 0xFFFF
 		maxp = 0x7FFF
@@ -517,6 +516,7 @@ func (k *cpu) step() {
 		k.memwrite(da, 2, val)
 		return
 	case 0077000: // SOB
+		o := instr & 0xFF
 		k.R[s&7]--
 		if k.R[s&7] != 0 {
 			o &= 077
@@ -844,7 +844,7 @@ func (k *cpu) step() {
 		k.R[d&7] = int(k.pop())
 		return
 	}
-	switch instr & 0177400 {
+	switch o := instr & 0xFF;instr & 0177400 {
 	case 0000400:
 		k.branch(o)
 		return
