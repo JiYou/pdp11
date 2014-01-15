@@ -210,7 +210,9 @@ func (k *cpu) branch(o int) {
 
 type INST int
 
-func (i INST) O() int { return int(i) & 0xff }
+func (i INST) O() int   { return int(i) & 0xff }
+func (i INST) S() uint8 { return uint8((i & 07700) >> 6) }
+func (i INST) D() uint8 { return uint8(i & 077) }
 
 func (k *cpu) step() {
 	var max, maxp, msb int
@@ -228,8 +230,6 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := INST(k.unibus.read16(ia))
-	s := uint8((instr & 07700) >> 6)
-	d := uint8(instr & 077)
 	l := uint8(2 - (instr >> 15))
 	if l == 2 {
 		max = 0xFFFF
@@ -242,9 +242,10 @@ func (k *cpu) step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		// k.printstate()
+		s := instr.S()
 		sa := k.aget(s, l)
 		val := k.memread(sa, l)
+		d := instr.D()
 		da := k.aget(d, l)
 		k.PS &= 0xFFF1
 		if val&msb == msb {
@@ -262,8 +263,10 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0020000: // CMP
+		s := instr.S()
 		sa := k.aget(s, l)
 		val1 := k.memread(sa, l)
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := (val1 - val2) & max
@@ -282,8 +285,10 @@ func (k *cpu) step() {
 		}
 		return
 	case 0030000: // BIT
+		s := instr.S()
 		sa := k.aget(s, l)
 		val1 := k.memread(sa, l)
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := val1 & val2
@@ -296,8 +301,10 @@ func (k *cpu) step() {
 		}
 		return
 	case 0040000: // BIC
+		s := instr.S()
 		sa := k.aget(s, l)
 		val1 := k.memread(sa, l)
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := (max ^ val1) & val2
@@ -311,8 +318,10 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0050000: // BIS
+		s := instr.S()
 		sa := k.aget(s, l)
 		val1 := k.memread(sa, l)
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := k.memread(da, l)
 		val := val1 | val2
@@ -328,8 +337,10 @@ func (k *cpu) step() {
 	}
 	switch instr & 0170000 {
 	case 0060000: // ADD
+		s := instr.S()
 		sa := k.aget(s, 2)
 		val1 := k.memread(sa, 2)
+		d := instr.D()
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := (val1 + val2) & 0xFFFF
@@ -349,8 +360,10 @@ func (k *cpu) step() {
 		k.memwrite(da, 2, val)
 		return
 	case 0160000: // SUB
+		s := instr.S()
 		sa := k.aget(s, 2)
 		val1 := k.memread(sa, 2)
+		d := instr.D()
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := (val2 - val1) & 0xFFFF
@@ -372,6 +385,8 @@ func (k *cpu) step() {
 	}
 	switch instr & 0177000 {
 	case 0004000: // JSR
+		s := instr.S()
+		d := instr.D()
 		val := k.aget(d, l)
 		if val < 0 {
 			break
@@ -381,10 +396,12 @@ func (k *cpu) step() {
 		k.R[7] = val
 		return
 	case 0070000: // MUL
+		s := instr.S()
 		val1 := k.R[s&7]
 		if val1&0x8000 == 0x8000 {
 			val1 = -((0xFFFF ^ val1) + 1)
 		}
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := int(k.memread(da, 2))
 		if val2&0x8000 == 0x8000 {
@@ -405,7 +422,9 @@ func (k *cpu) step() {
 		}
 		return
 	case 0071000: // DIV
+		s := instr.S()
 		val1 := (k.R[s&7] << 16) | k.R[(s&7)|1]
+		d := instr.D()
 		da := k.aget(d, l)
 		val2 := int(k.memread(da, 2))
 		k.PS &= 0xFFF0
@@ -430,7 +449,9 @@ func (k *cpu) step() {
 		}
 		return
 	case 0072000: // ASH
+		s := instr.S()
 		val1 := k.R[s&7]
+		d := instr.D()
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
@@ -466,7 +487,9 @@ func (k *cpu) step() {
 		}
 		return
 	case 0073000: // ASHC
+		s := instr.S()
 		val1 := k.R[s&7]<<16 | k.R[(s&7)|1]
+		d := instr.D()
 		da := k.aget(d, 2)
 		val2 := uint(k.memread(da, 2) & 077)
 		k.PS &= 0xFFF0
@@ -501,7 +524,9 @@ func (k *cpu) step() {
 		}
 		return
 	case 0074000: // XOR
+		s := instr.S()
 		val1 := k.R[s&7]
+		d := instr.D()
 		da := k.aget(d, 2)
 		val2 := k.memread(da, 2)
 		val := val1 ^ val2
@@ -515,6 +540,7 @@ func (k *cpu) step() {
 		k.memwrite(da, 2, val)
 		return
 	case 0077000: // SOB
+		s := instr.S()
 		o := instr.O()
 		k.R[s&7]--
 		if k.R[s&7] != 0 {
@@ -528,10 +554,12 @@ func (k *cpu) step() {
 	case 0005000: // CLR
 		k.PS &= 0xFFF0
 		k.PS |= FLAGZ
+		d := instr.D()
 		da := k.aget(d, l)
 		k.memwrite(da, l, 0)
 		return
 	case 0005100: // COM
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l) ^ max
 		k.PS &= 0xFFF0
@@ -545,6 +573,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0005200: // INC
+		d := instr.D()
 		da := k.aget(d, l)
 		val := (k.memread(da, l) + 1) & max
 		k.PS &= 0xFFF1
@@ -557,6 +586,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0005300: // DEC
+		d := instr.D()
 		da := k.aget(d, l)
 		val := (k.memread(da, l) - 1) & max
 		k.PS &= 0xFFF1
@@ -572,6 +602,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0005400: // NEG
+		d := instr.D()
 		da := k.aget(d, l)
 		val := (-k.memread(da, l)) & max
 		k.PS &= 0xFFF0
@@ -589,6 +620,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0005500: // ADC
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		if k.PS&FLAGC == FLAGC {
@@ -617,6 +649,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0005600: // SBC
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		if k.PS&FLAGC == FLAGC {
@@ -649,6 +682,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0005700: // TST
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
@@ -660,6 +694,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0006000: // ROR
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		if k.PS&FLAGC == FLAGC {
@@ -682,6 +717,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006100: // ROL
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l) << 1
 		if k.PS&FLAGC == FLAGC {
@@ -704,6 +740,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006200: // ASR
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
@@ -723,6 +760,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006300: // ASL
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		k.PS &= 0xFFF0
@@ -742,6 +780,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006700: // SXT
+		d := instr.D()
 		da := k.aget(d, l)
 		if k.PS&FLAGN == FLAGN {
 			k.memwrite(da, l, max)
@@ -753,6 +792,7 @@ func (k *cpu) step() {
 	}
 	switch instr & 0177700 {
 	case 0000100: // JMP
+		d := instr.D()
 		val := k.aget(d, 2)
 		if val < 0 {
 			panic("whoa!")
@@ -761,6 +801,7 @@ func (k *cpu) step() {
 		k.R[7] = val
 		return
 	case 0000300: // SWAB
+		d := instr.D()
 		da := k.aget(d, l)
 		val := k.memread(da, l)
 		val = ((val >> 8) | (val << 8)) & 0xFFFF
@@ -780,6 +821,7 @@ func (k *cpu) step() {
 		break
 	case 0006500: // MFPI
 		var val uint16
+		d := instr.D()
 		da := k.aget(d, 2)
 		switch {
 		case da == -7:
@@ -809,6 +851,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0006600: // MTPI
+		d := instr.D()
 		da := k.aget(d, 2)
 		val := uint16(k.pop())
 		switch {
@@ -839,6 +882,7 @@ func (k *cpu) step() {
 		return
 	}
 	if (instr & 0177770) == 0000200 { // RTS
+		d := instr.D()
 		k.R[7] = k.R[d&7]
 		k.R[d&7] = int(k.pop())
 		return
