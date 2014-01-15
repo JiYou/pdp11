@@ -16,8 +16,12 @@ type RK11 struct {
 	RKBA, RKDS, RKER, RKCS, RKWC            int
 	drive, sector, surface, cylinder, rkimg int
 	running                                 bool
-	rkdisk                                  []byte // rk0 disk image
+	unit                                    [8]*RK05
 	unibus                                  *unibus
+}
+
+type RK05 struct {
+	rkdisk []byte // rk0 disk image
 }
 
 func (r *RK11) read16(a uint18) uint16 {
@@ -87,9 +91,10 @@ func (r *RK11) Step() {
 		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((r.RKCS & 017) >> 1)))
 	}
 	//fmt.Println("rkrwsec: RKBA:", r.RKBA, "RKWC:", r.RKWC, "cylinder:", r.cylinder, "sector:", r.sector)
-	if r.drive != 0 {
+	if r.unit[r.drive] == nil {
 		r.rkerror(RKNXD)
 	}
+	unit := r.unit[r.drive]
 	if r.cylinder > 0312 {
 		r.rkerror(RKNXC)
 	}
@@ -97,16 +102,16 @@ func (r *RK11) Step() {
 		r.rkerror(RKNXS)
 	}
 	pos := (r.cylinder*24 + r.surface*12 + r.sector) * 512
-	if pos >= len(r.rkdisk) {
-		panic(fmt.Sprintf("pos outside rkdisk length, pos: %v, len %v", pos, len(r.rkdisk)))
+	if pos >= len(unit.rkdisk) {
+		panic(fmt.Sprintf("pos outside rkdisk length, pos: %v, len %v", pos, len(unit.rkdisk)))
 	}
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
 		if w {
 			val := r.unibus.Memory[r.RKBA>>1]
-			r.rkdisk[pos] = byte(val & 0xFF)
-			r.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
+			unit.rkdisk[pos] = byte(val & 0xFF)
+			unit.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			r.unibus.Memory[r.RKBA>>1] = uint16(r.rkdisk[pos]) | uint16(r.rkdisk[pos+1])<<8
+			r.unibus.Memory[r.RKBA>>1] = uint16(unit.rkdisk[pos]) | uint16(unit.rkdisk[pos+1])<<8
 		}
 		r.RKBA += 2
 		pos += 2
@@ -182,11 +187,16 @@ func (r *RK11) rkreset() {
 	r.RKBA = 0
 }
 
-func (r *RK11) rkinit() {
-	buf, err := ioutil.ReadFile("rk0")
+// Attach reads the contents of file into memory and
+// makes them available as an RK11 drive unit.
+func (r *RK11) Attach(drive int, file string) {
+	buf, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
-	r.rkdisk = make([]byte, imglen)
-	copy(r.rkdisk, buf)
+	unit := &RK05{
+		rkdisk: make([]byte, imglen),
+	}
+	copy(unit.rkdisk, buf)
+	r.unit[drive] = unit
 }

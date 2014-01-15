@@ -186,7 +186,7 @@ func New() *PDP1140 {
 	pdp.unibus.cpu = &pdp.cpu
 	pdp.cpu.mmu.cpu = &pdp.cpu
 	pdp.unibus.rk.unibus = &pdp.unibus
-	pdp.unibus.rk.rkinit()
+	pdp.unibus.rk.Attach(0, "rk0")
 	pdp.cpu.Reset()
 	return &pdp
 }
