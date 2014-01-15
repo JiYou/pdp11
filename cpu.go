@@ -140,12 +140,17 @@ func interrupt(vec, pri int) {
 	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
 }
 
-func (k *cpu) aget(v, l uint8) int {
+type regaddr int
+
+func (r regaddr) register() bool { return r < 0 }
+func (r regaddr) address() bool  { return r >= 0 }
+
+func (k *cpu) aget(v, l uint8) regaddr {
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
 	}
 	if (v & 070) == 000 {
-		return -int(v + 1)
+		return -regaddr(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
@@ -166,34 +171,34 @@ func (k *cpu) aget(v, l uint8) int {
 	if v&010 != 0 {
 		addr = k.read16(addr)
 	}
-	return int(addr)
+	return regaddr(addr)
 }
 
-func (k *cpu) memread(a int, l uint8) int {
-	if a < 0 {
+func (k *cpu) memread(a regaddr, l uint8) int {
+	if a.register() {
 		r := uint8(-(a + 1))
-		if l == 2 {
+		if l == WORD {
 			return k.R[r&7]
 		} else {
 			return k.R[r&7] & 0xFF
 		}
 	}
-	if l == 2 {
+	if l == WORD {
 		return int(k.read16(uint16(a)))
 	}
 	return int(k.read8(uint16(a)))
 }
 
-func (k *cpu) memwrite(a int, l uint8, v int) {
-	if a < 0 {
+func (k *cpu) memwrite(a regaddr, l uint8, v int) {
+	if a.register() {
 		r := uint8(-(a + 1))
-		if l == 2 {
+		if l == WORD {
 			k.R[r&7] = v
 		} else {
 			k.R[r&7] &= 0xFF00
 			k.R[r&7] |= v
 		}
-	} else if l == 2 {
+	} else if l == WORD {
 		k.write16(uint16(a), uint16(v))
 	} else {
 		k.write8(uint16(a), uint16(v))
@@ -213,6 +218,12 @@ type INST int
 func (i INST) O() int   { return int(i) & 0xff }
 func (i INST) S() uint8 { return uint8((i & 07700) >> 6) }
 func (i INST) D() uint8 { return uint8(i & 077) }
+func (i INST) L() uint8 { return uint8(2 - (i >> 15)) }
+
+const (
+	WORD = 2
+	BYTE = 1
+)
 
 func (k *cpu) step() {
 	var max, maxp, msb int
@@ -230,8 +241,8 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := INST(k.unibus.read16(ia))
-	l := uint8(2 - (instr >> 15))
-	if l == 2 {
+	l := instr.L()
+	if l == WORD {
 		max = 0xFFFF
 		maxp = 0x7FFF
 		msb = 0x8000
@@ -254,8 +265,8 @@ func (k *cpu) step() {
 		if val == 0 {
 			k.PS |= FLAGZ
 		}
-		if da < 0 && l == 1 {
-			l = 2
+		if da.register() && l == BYTE {
+			l = WORD
 			if val&msb == msb {
 				val |= 0xFF00
 			}
@@ -388,12 +399,12 @@ func (k *cpu) step() {
 		s := instr.S()
 		d := instr.D()
 		val := k.aget(d, l)
-		if val < 0 {
+		if val.register() {
 			break
 		}
 		k.push(uint16(k.R[s&7]))
 		k.R[s&7] = k.R[7]
-		k.R[7] = val
+		k.R[7] = int(val)
 		return
 	case 0070000: // MUL
 		s := instr.S()
@@ -794,11 +805,11 @@ func (k *cpu) step() {
 	case 0000100: // JMP
 		d := instr.D()
 		val := k.aget(d, 2)
-		if val < 0 {
+		if val.register() {
 			panic("whoa!")
 			break
 		}
-		k.R[7] = val
+		k.R[7] = int(val)
 		return
 	case 0000300: // SWAB
 		d := instr.D()
@@ -835,7 +846,7 @@ func (k *cpu) step() {
 					val = k.KSP
 				}
 			}
-		case da < 0:
+		case da.register():
 			panic("invalid MFPI instruction")
 		default:
 			val = k.unibus.read16(k.mmu.decode(uint16(da), false, k.prevuser))
@@ -865,7 +876,7 @@ func (k *cpu) step() {
 					k.KSP = val
 				}
 			}
-		case da < 0:
+		case da.register():
 			panic("invalid MTPI instrution")
 		default:
 			sa := k.mmu.decode(uint16(da), true, k.prevuser)
