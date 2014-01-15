@@ -12,7 +12,7 @@ const (
 	RKNXS = (1 << 5)
 )
 
-type RK05 struct {
+type RK11 struct {
 	RKBA, RKDS, RKER, RKCS, RKWC            int
 	drive, sector, surface, cylinder, rkimg int
 	running                                 bool
@@ -20,7 +20,7 @@ type RK05 struct {
 	unibus                                  *unibus
 }
 
-func (r *RK05) read16(a uint18) uint16 {
+func (r *RK11) read16(a uint18) uint16 {
 	switch a {
 	case 0777400:
 		return uint16(r.RKDS)
@@ -39,17 +39,17 @@ func (r *RK05) read16(a uint18) uint16 {
 	}
 }
 
-func (r *RK05) rknotready() {
+func (r *RK11) rknotready() {
 	r.RKDS &= ^(1 << 6)
 	r.RKCS &= ^(1 << 7)
 }
 
-func (r *RK05) ready() {
+func (r *RK11) ready() {
 	r.RKDS |= 1 << 6
 	r.RKCS |= 1 << 7
 }
 
-func (r *RK05) rkerror(code int) {
+func (r *RK11) rkerror(code int) {
 	var msg string
 	r.ready()
 	r.RKER |= code
@@ -71,7 +71,7 @@ func (r *RK05) rkerror(code int) {
 	panic(msg)
 }
 
-func (r *RK05) Step() {
+func (r *RK11) Step() {
 	if !r.running {
 		return
 	}
@@ -133,7 +133,7 @@ func (r *RK05) Step() {
 	}
 }
 
-func (r *RK05) rkgo() {
+func (r *RK11) rkgo() {
 	switch (r.RKCS & 017) >> 1 {
 	case 0:
 		r.rkreset()
@@ -145,7 +145,7 @@ func (r *RK05) rkgo() {
 	}
 }
 
-func (r *RK05) write16(a uint18, v uint16) {
+func (r *RK11) write16(a uint18, v uint16) {
 	switch v := int(v); a {
 	case 0777400:
 		break
@@ -174,7 +174,7 @@ func (r *RK05) write16(a uint18, v uint16) {
 	}
 }
 
-func (r *RK05) rkreset() {
+func (r *RK11) rkreset() {
 	r.RKDS = (1 << 11) | (1 << 7) | (1 << 6)
 	r.RKER = 0
 	r.RKCS = 1 << 7
@@ -182,7 +182,7 @@ func (r *RK05) rkreset() {
 	r.RKBA = 0
 }
 
-func (r *RK05) rkinit() {
+func (r *RK11) rkinit() {
 	buf, err := ioutil.ReadFile("rk0")
 	if err != nil {
 		panic(err)

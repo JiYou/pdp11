@@ -6,7 +6,7 @@ type unibus struct {
 	Memory [128 * 1024]uint16
 	LKS    uint16
 	cpu    *cpu
-	rk     RK05 // drive 0
+	rk     RK11 // drive 0
 	cons   Console
 }
 

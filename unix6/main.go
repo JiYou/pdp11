@@ -28,7 +28,7 @@ func main() {
 	pdp := pdp11.New()
 	const LOADADDR = 01000
 	pdp.LoadBootrom(LOADADDR, pdp11.BOOTRK05)
-	pdp.SetPC(LOADADDR *2 +2)
+	pdp.SetPC(LOADADDR*2 + 2)
 	go stdin(pdp.Input)
 	pdp.Run()
 }
