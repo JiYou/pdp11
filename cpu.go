@@ -2,13 +2,6 @@ package pdp11
 
 import "fmt"
 
-const (
-	FLAGN = 8
-	FLAGZ = 4
-	FLAGV = 2
-	FLAGC = 1
-)
-
 const pr = false // debug
 
 var (
@@ -46,9 +39,27 @@ func xor16(x, y uint16) uint16 {
 	return z
 }
 
+func XOR(a, b bool) bool {
+	return (!a && b) || (a && !b)
+}
+
+const (
+	FLAGN = 8
+	FLAGZ = 4
+	FLAGV = 2
+	FLAGC = 1
+)
+
+type PSW uint16
+
+func (p PSW) N() uint16 { return uint16(p & FLAGN) }
+func (p PSW) Z() bool   { return p&FLAGZ == FLAGZ }
+func (p PSW) V() uint16 { return uint16(p & FLAGV) }
+func (p PSW) C() bool   { return p&FLAGC == FLAGC }
+
 type cpu struct {
 	R                 [8]int // registers
-	PS                uint16 // processor status
+	PS                PSW    // processor status
 	pc                uint16 // address of currently executing instructoin
 	KSP, USP          uint16 // kernel and user stack pointer
 	curuser, prevuser bool
@@ -844,7 +855,7 @@ func (k *cpu) step() {
 		k.R[d&7] = int(k.pop())
 		return
 	}
-	switch o := instr & 0xFF;instr & 0177400 {
+	switch o := instr & 0xFF; instr & 0177400 {
 	case 0000400:
 		k.branch(o)
 		return
@@ -859,62 +870,62 @@ func (k *cpu) step() {
 		}
 		return
 	case 0002000:
-		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) {
+		if !(xor16(k.PS.N(), k.PS.V()) != 0) {
 			k.branch(o)
 		}
 		return
 	case 0002400:
-		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 {
+		if xor16(k.PS.N(), k.PS.V()) != 0 {
 			k.branch(o)
 		}
 		return
 	case 0003000:
-		if !(xor16(k.PS&FLAGN, k.PS&FLAGV) != 0) && !(k.PS&FLAGZ == FLAGZ) {
+		if !(xor16(k.PS.N(), k.PS.V()) != 0) && !k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0003400:
-		if xor16(k.PS&FLAGN, k.PS&FLAGV) != 0 || (k.PS&FLAGZ == FLAGZ) {
+		if xor16(k.PS.N(), k.PS.V()) != 0 || k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0100000:
-		if k.PS&FLAGN == 0 {
+		if k.PS.N() == 0 {
 			k.branch(o)
 		}
 		return
 	case 0100400:
-		if k.PS&FLAGN == FLAGN {
+		if k.PS.N() == FLAGN {
 			k.branch(o)
 		}
 		return
 	case 0101000:
-		if !(k.PS&FLAGC == FLAGC) && !(k.PS&FLAGZ == FLAGZ) {
+		if !k.PS.C() && !k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0101400:
-		if (k.PS&FLAGC == FLAGC) || (k.PS&FLAGZ == FLAGZ) {
+		if k.PS.C() || k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0102000:
-		if !(k.PS&FLAGV == FLAGV) {
+		if !(k.PS.V() == FLAGV) {
 			k.branch(o)
 		}
 		return
 	case 0102400:
-		if k.PS&FLAGV == FLAGV {
+		if k.PS.V() == FLAGV {
 			k.branch(o)
 		}
 		return
 	case 0103000:
-		if !(k.PS&FLAGC == FLAGC) {
+		if !k.PS.C() {
 			k.branch(o)
 		}
 		return
 	case 0103400:
-		if k.PS&FLAGC == FLAGC {
+		if k.PS.C() {
 			k.branch(o)
 		}
 		return
@@ -931,12 +942,12 @@ func (k *cpu) step() {
 		default:
 			vec = 020
 		}
-		prev := k.PS
+		prev := uint16(k.PS)
 		k.switchmode(false)
 		k.push(prev)
 		k.push(uint16(k.R[7]))
 		k.R[7] = int(k.unibus.Memory[vec>>1])
-		k.PS = k.unibus.Memory[(vec>>1)+1]
+		k.PS = PSW(k.unibus.Memory[(vec>>1)+1])
 		if k.prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -944,9 +955,9 @@ func (k *cpu) step() {
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			k.PS |= uint16(instr) & 017
+			k.PS |= PSW(instr) & 017
 		} else {
-			k.PS &= ^(uint16(instr) & 017)
+			k.PS &= ^(PSW(instr) & 017)
 		}
 		return
 	}
@@ -972,7 +983,7 @@ func (k *cpu) step() {
 		val := k.pop()
 		if k.curuser {
 			val &= 047
-			val |= k.PS & 0177730
+			val |= uint16(k.PS) & 0177730
 		}
 		k.unibus.write16(0777776, val)
 		return

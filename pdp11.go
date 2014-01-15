@@ -121,13 +121,13 @@ func (p *PDP1140) handleinterrupt(vec int) {
 			panic(t)
 		}
 		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = p.Memory[(vec>>1)+1]
+		p.cpu.PS = PSW(p.Memory[(vec>>1)+1])
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
 		waiting = false
 	}()
-	prev := p.cpu.PS
+	prev := uint16(p.cpu.PS)
 	p.cpu.switchmode(false)
 	p.cpu.push(prev)
 	p.cpu.push(uint16(p.cpu.R[7]))
@@ -153,7 +153,7 @@ func (p *PDP1140) trapat(vec int, msg string) {
 			panic(t)
 		}
 		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = p.Memory[(vec>>1)+1]
+		p.cpu.PS = PSW(p.Memory[(vec>>1)+1])
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
@@ -162,7 +162,7 @@ func (p *PDP1140) trapat(vec int, msg string) {
 	if vec&1 == 1 {
 		panic("Thou darst calling trapat() with an odd vector number?")
 	}
-	prev = p.cpu.PS
+	prev = uint16(p.cpu.PS)
 	p.cpu.switchmode(false)
 	p.cpu.push(prev)
 	p.cpu.push(uint16(p.cpu.R[7]))

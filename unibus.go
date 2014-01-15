@@ -28,7 +28,7 @@ func (u *unibus) read16(a uint18) uint16 {
 	case a == 0777576:
 		return u.cpu.mmu.SR2
 	case a == 0777776:
-		return u.cpu.PS
+		return uint16(u.cpu.PS)
 	case a&0777770 == 0777560:
 		return uint16(u.cons.consread16(a))
 	case a&0777760 == 0777400:
@@ -95,7 +95,7 @@ func (u *unibus) write16(a uint18, v uint16) {
 		default:
 			panic("invalid mode")
 		}
-		u.cpu.PS = v
+		u.cpu.PS = PSW(v)
 	} else if a == 0777546 {
 		u.LKS = v
 	} else if a == 0777572 {
