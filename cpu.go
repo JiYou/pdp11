@@ -762,24 +762,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006300: // ASL
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		k.PS &= 0xFFF0
-		if val&msb == msb {
-			k.PS |= FLAGC
-		}
-		if val&(msb>>1) != 0 {
-			k.PS |= FLAGN
-		}
-		if (val^(val<<1))&msb != 0 {
-			k.PS |= FLAGV
-		}
-		val = (val << 1) & max
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, l, val)
+		ASL(k, instr)
 		return
 	case 0006700: // SXT
 		d := instr.D()
@@ -797,18 +780,7 @@ func (k *cpu) step() {
 		JMP(k, instr)
 		return
 	case 0000300: // SWAB
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		val = ((val >> 8) | (val << 8)) & 0xFFFF
-		k.PS &= 0xFFF0
-		if (val & 0xFF) == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x80 == 0x80 {
-			k.PS |= FLAGN
-		}
-		k.memwrite(da, l, val)
+		SWAB(k, instr)
 		return
 	case 0006400: // MARK
 		MARK(k, instr)
@@ -1053,6 +1025,34 @@ func (k *cpu) Reset() {
 	waiting = false
 }
 
+func ASL(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	c.PS &= 0xFFF0
+	if val&msb == msb {
+		c.PS |= FLAGC
+	}
+	if val&(msb>>1) != 0 {
+		c.PS |= FLAGN
+	}
+	if (val^(val<<1))&msb != 0 {
+		c.PS |= FLAGV
+	}
+	val = (val << 1) & max
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, l, val)
+}
+
 func TST(c *cpu, i INST) {
 	l := i.L()
 	msb := 0x80
@@ -1070,6 +1070,22 @@ func TST(c *cpu, i INST) {
 	if val == 0 {
 		c.PS |= FLAGZ
 	}
+}
+
+func SWAB(c *cpu, i INST) {
+	l := i.L()
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	val = ((val >> 8) | (val << 8)) & 0xFFFF
+	c.PS &= 0xFFF0
+	if (val & 0xFF) == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x80 == 0x80 {
+		c.PS |= FLAGN
+	}
+	c.memwrite(da, l, val)
 }
 
 func JMP(c *cpu, i INST) {
