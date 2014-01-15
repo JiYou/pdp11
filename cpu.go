@@ -208,6 +208,10 @@ func (k *cpu) branch(o int) {
 	k.R[7] += o
 }
 
+type INST int
+
+func (i INST) O() int { return int(i) & 0xff }
+
 func (k *cpu) step() {
 	var max, maxp, msb int
 	if waiting {
@@ -223,7 +227,7 @@ func (k *cpu) step() {
 	k.pc = uint16(k.R[7])
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
-	instr := int(k.unibus.read16(ia))
+	instr := INST(k.unibus.read16(ia))
 	s := uint8((instr & 07700) >> 6)
 	d := uint8(instr & 077)
 	l := uint8(2 - (instr >> 15))
@@ -511,7 +515,7 @@ func (k *cpu) step() {
 		k.memwrite(da, 2, val)
 		return
 	case 0077000: // SOB
-		o := instr & 0xFF
+		o := instr.O()
 		k.R[s&7]--
 		if k.R[s&7] != 0 {
 			o &= 077
@@ -770,7 +774,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006400: // MARK
-		k.R[6] = k.R[7] + (instr&077)<<1
+		k.R[6] = k.R[7] + int(instr.O())<<1
 		k.R[7] = k.R[5]
 		k.R[5] = int(k.pop())
 		break
@@ -839,7 +843,7 @@ func (k *cpu) step() {
 		k.R[d&7] = int(k.pop())
 		return
 	}
-	switch o := instr & 0xFF; instr & 0177400 {
+	switch o := instr.O(); instr & 0177400 {
 	case 0000400:
 		k.branch(o)
 		return

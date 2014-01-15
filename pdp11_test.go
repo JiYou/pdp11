@@ -9,7 +9,7 @@ func TestXOR(t *testing.T) {
 	}{
 		{false, false, false},
 		{true, false, true},
-		{false, true, false},
+		{false, true, true},
 		{true, true, false},
 	} {
 		got := xor(tt.x, tt.y)
