@@ -5,16 +5,16 @@ import "time"
 
 func TestXOR(t *testing.T) {
 	for _, tt := range []struct {
-		x, y, z int
+		x, y, z bool
 	}{
-		{0, 0, 0},
-		{1, 0, 1},
-		{0, 1, 1},
-		{1, 1, 0},
+		{false, false, false},
+		{true, false, true},
+		{false, true, false},
+		{true, true, false},
 	} {
 		got := xor(tt.x, tt.y)
 		if got != tt.z {
-			t.Errorf("xor(%d, %d) = %d; want %d", tt.x, tt.y, got, tt.z)
+			t.Errorf("xor(%v, %v) = %v; want %v", tt.x, tt.y, got, tt.z)
 		}
 	}
 }

@@ -25,23 +25,7 @@ const (
 	INTRK     = 0220
 )
 
-func xor(x, y int) int {
-	a := x & y
-	b := ^x & ^y
-	z := ^a & ^b
-	return z
-}
-
-func xor16(x, y uint16) uint16 {
-	a := x & y
-	b := ^x & ^y
-	z := ^a & ^b
-	return z
-}
-
-func XOR(a, b bool) bool {
-	return (!a && b) || (a && !b)
-}
+func xor(a, b bool) bool { return (!a && b) || (a && !b) }
 
 const (
 	FLAGN = 8
@@ -52,10 +36,10 @@ const (
 
 type PSW uint16
 
-func (p PSW) N() uint16 { return uint16(p & FLAGN) }
-func (p PSW) Z() bool   { return p&FLAGZ == FLAGZ }
-func (p PSW) V() uint16 { return uint16(p & FLAGV) }
-func (p PSW) C() bool   { return p&FLAGC == FLAGC }
+func (p PSW) N() bool { return p&FLAGN == FLAGN }
+func (p PSW) Z() bool { return p&FLAGZ == FLAGZ }
+func (p PSW) V() bool { return p&FLAGV == FLAGV }
+func (p PSW) C() bool { return p&FLAGC == FLAGC }
 
 type cpu struct {
 	R                 [8]int // registers
@@ -473,7 +457,7 @@ func (k *cpu) step() {
 		if val&0100000 == 0100000 {
 			k.PS |= FLAGN
 		}
-		if xor(val&0100000, val1&0100000) != 0 {
+		if xor(val&0100000 != 0, val1&0100000 != 0) {
 			k.PS |= FLAGV
 		}
 		return
@@ -508,7 +492,7 @@ func (k *cpu) step() {
 		if val&0x80000000 != 0 {
 			k.PS |= FLAGN
 		}
-		if xor(val&0x80000000, val1&0x80000000) != 0 {
+		if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
 			k.PS |= FLAGV
 		}
 		return
@@ -687,7 +671,7 @@ func (k *cpu) step() {
 		if !(val&max != 0) {
 			k.PS |= FLAGZ
 		}
-		if xor(val&1, val&(max+1)) != 0 {
+		if xor(val&1 == 1, val&(max+1) != 0) {
 			k.PS |= FLAGV
 		}
 		val >>= 1
@@ -725,7 +709,7 @@ func (k *cpu) step() {
 		if val&msb == msb {
 			k.PS |= FLAGN
 		}
-		if xor(val&msb, val&1) != 0 {
+		if xor(val&msb != 0, val&1 == 1) {
 			k.PS |= FLAGV
 		}
 		val = (val & msb) | (val >> 1)
@@ -870,32 +854,32 @@ func (k *cpu) step() {
 		}
 		return
 	case 0002000:
-		if !(xor16(k.PS.N(), k.PS.V()) != 0) {
+		if !xor(k.PS.N(), k.PS.V()) {
 			k.branch(o)
 		}
 		return
 	case 0002400:
-		if xor16(k.PS.N(), k.PS.V()) != 0 {
+		if xor(k.PS.N(), k.PS.V()) {
 			k.branch(o)
 		}
 		return
 	case 0003000:
-		if !(xor16(k.PS.N(), k.PS.V()) != 0) && !k.PS.Z() {
+		if !xor(k.PS.N(), k.PS.V()) && !k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0003400:
-		if xor16(k.PS.N(), k.PS.V()) != 0 || k.PS.Z() {
+		if xor(k.PS.N(), k.PS.V()) || k.PS.Z() {
 			k.branch(o)
 		}
 		return
 	case 0100000:
-		if k.PS.N() == 0 {
+		if !k.PS.N() {
 			k.branch(o)
 		}
 		return
 	case 0100400:
-		if k.PS.N() == FLAGN {
+		if k.PS.N() {
 			k.branch(o)
 		}
 		return
@@ -910,12 +894,12 @@ func (k *cpu) step() {
 		}
 		return
 	case 0102000:
-		if !(k.PS.V() == FLAGV) {
+		if !k.PS.V() {
 			k.branch(o)
 		}
 		return
 	case 0102400:
-		if k.PS.V() == FLAGV {
+		if k.PS.V() {
 			k.branch(o)
 		}
 		return
