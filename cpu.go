@@ -693,16 +693,7 @@ func (k *cpu) step() {
 		}
 		return
 	case 0005700: // TST
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		k.PS &= 0xFFF0
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
+		TST(k, instr)
 		return
 	case 0006000: // ROR
 		d := instr.D()
@@ -803,13 +794,7 @@ func (k *cpu) step() {
 	}
 	switch instr & 0177700 {
 	case 0000100: // JMP
-		d := instr.D()
-		val := k.aget(d, 2)
-		if val.register() {
-			panic("whoa!")
-			break
-		}
-		k.R[7] = int(val)
+		JMP(k, instr)
 		return
 	case 0000300: // SWAB
 		d := instr.D()
@@ -826,9 +811,7 @@ func (k *cpu) step() {
 		k.memwrite(da, l, val)
 		return
 	case 0006400: // MARK
-		k.R[6] = k.R[7] + int(instr.O())<<1
-		k.R[7] = k.R[5]
-		k.R[5] = int(k.pop())
+		MARK(k, instr)
 		break
 	case 0006500: // MFPI
 		var val uint16
@@ -1068,4 +1051,38 @@ func (k *cpu) Reset() {
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
+}
+
+func TST(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	if l == WORD {
+		msb = 0x8000
+	}
+
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	c.PS &= 0xFFF0
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+}
+
+func JMP(c *cpu, i INST) {
+	d := i.D()
+	val := c.aget(d, WORD)
+	if val.register() {
+		panic("JMP: cannot jump to register")
+	}
+	c.R[7] = int(val)
+}
+
+func MARK(c *cpu, i INST) {
+	c.R[6] = c.R[7] + int(i.O())<<1
+	c.R[7] = c.R[5]
+	c.R[5] = int(c.pop())
 }
