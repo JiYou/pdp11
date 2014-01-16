@@ -262,38 +262,10 @@ func (k *cpu) step() {
 		BIT(k, instr)
 		return
 	case 0040000: // BIC
-		s := instr.S()
-		sa := k.aget(s, l)
-		val1 := k.memread(sa, l)
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := k.memread(da, l)
-		val := (max ^ val1) & val2
-		k.PS &= 0xFFF1
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&msb != 0 {
-			k.PS |= FLAGN
-		}
-		k.memwrite(da, l, val)
+		BIC(k, instr)
 		return
 	case 0050000: // BIS
-		s := instr.S()
-		sa := k.aget(s, l)
-		val1 := k.memread(sa, l)
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := k.memread(da, l)
-		val := val1 | val2
-		k.PS &= 0xFFF1
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		k.memwrite(da, l, val)
+		BIS(k, instr)
 		return
 	}
 	switch instr & 0170000 {
@@ -1053,6 +1025,55 @@ func BIT(c *cpu, i INST) {
 	if val&msb == msb {
 		c.PS |= FLAGN
 	}
+}
+
+func BIC(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+
+	s := i.S()
+	sa := c.aget(s, l)
+	val1 := c.memread(sa, l)
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := c.memread(da, l)
+	val := (max ^ val1) & val2
+	c.PS &= 0xFFF1
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&msb != 0 {
+		c.PS |= FLAGN
+	}
+	c.memwrite(da, l, val)
+}
+
+func BIS(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	if l == WORD {
+		msb = 0x8000
+	}
+	s := i.S()
+	sa := c.aget(s, l)
+	val1 := c.memread(sa, l)
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := c.memread(da, l)
+	val := val1 | val2
+	c.PS &= 0xFFF1
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	c.memwrite(da, l, val)
 }
 
 func ASL(c *cpu, i INST) {

@@ -36,7 +36,7 @@ chdir /usr/sys/conf
 cc mkconf.c
 mv a.out mkconf
 ./mkconf
-`, 5 * N},
+`, 4 * N},
 	{`
 ed TEST.C
 a
