@@ -299,57 +299,10 @@ func (k *cpu) step() {
 		ASH(k, instr)
 		return
 	case 0073000: // ASHC
-		s := instr.S()
-		val1 := k.R[s&7]<<16 | k.R[(s&7)|1]
-		d := instr.D()
-		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
-		k.PS &= 0xFFF0
-		var val int
-		if val2&040 != 0 {
-			val2 = (077 ^ val2) + 1
-			if val1&0x80000000 == 0x80000000 {
-				val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
-				val |= val1 >> val2
-			} else {
-				val = val1 >> val2
-			}
-			if val1&(1<<(val2-1)) != 0 {
-				k.PS |= FLAGC
-			}
-		} else {
-			val = (val1 << val2) & 0xFFFFFFFF
-			if val1&(1<<(32-val2)) != 0 {
-				k.PS |= FLAGC
-			}
-		}
-		k.R[s&7] = (val >> 16) & 0xFFFF
-		k.R[(s&7)|1] = val & 0xFFFF
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x80000000 != 0 {
-			k.PS |= FLAGN
-		}
-		if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
-			k.PS |= FLAGV
-		}
+		ASHC(k, instr)
 		return
 	case 0074000: // XOR
-		s := instr.S()
-		val1 := k.R[s&7]
-		d := instr.D()
-		da := k.aget(d, 2)
-		val2 := k.memread(da, 2)
-		val := val1 ^ val2
-		k.PS &= 0xFFF1
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x8000 == 0x8000 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, 2, val)
+		XOR(k, instr)
 		return
 	case 0077000: // SOB
 		s := instr.S()
@@ -1100,6 +1053,61 @@ func ASH(c *cpu, i INST) {
 	if xor(val&0100000 != 0, val1&0100000 != 0) {
 		c.PS |= FLAGV
 	}
+}
+
+func ASHC(c *cpu, i INST) {
+	s := i.S()
+	val1 := c.R[s&7]<<16 | c.R[(s&7)|1]
+	d := i.D()
+	da := c.aget(d, WORD)
+	val2 := uint(c.memread(da, WORD) & 077)
+	c.PS &= 0xFFF0
+	var val int
+	if val2&040 != 0 {
+		val2 = (077 ^ val2) + 1
+		if val1&0x80000000 == 0x80000000 {
+			val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
+			val |= val1 >> val2
+		} else {
+			val = val1 >> val2
+		}
+		if val1&(1<<(val2-1)) != 0 {
+			c.PS |= FLAGC
+		}
+	} else {
+		val = (val1 << val2) & 0xFFFFFFFF
+		if val1&(1<<(32-val2)) != 0 {
+			c.PS |= FLAGC
+		}
+	}
+	c.R[s&7] = (val >> 16) & 0xFFFF
+	c.R[(s&7)|1] = val & 0xFFFF
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x80000000 != 0 {
+		c.PS |= FLAGN
+	}
+	if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
+		c.PS |= FLAGV
+	}
+}
+
+func XOR(c *cpu, i INST) {
+	s := i.S()
+	val1 := c.R[s&7]
+	d := i.D()
+	da := c.aget(d, WORD)
+	val2 := c.memread(da, WORD)
+	val := val1 ^ val2
+	c.PS &= 0xFFF1
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, WORD, val)
 }
 
 func ASL(c *cpu, i INST) {
