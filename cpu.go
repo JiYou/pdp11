@@ -305,50 +305,18 @@ func (k *cpu) step() {
 		XOR(k, instr)
 		return
 	case 0077000: // SOB
-		s := instr.S()
-		o := instr.O()
-		k.R[s&7]--
-		if k.R[s&7] != 0 {
-			o &= 077
-			o <<= 1
-			k.R[7] -= o
-		}
+		SOB(k, instr)
 		return
 	}
 	switch instr & 0077700 {
 	case 0005000: // CLR
-		k.PS &= 0xFFF0
-		k.PS |= FLAGZ
-		d := instr.D()
-		da := k.aget(d, l)
-		k.memwrite(da, l, 0)
+		CLR(k, instr)
 		return
 	case 0005100: // COM
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l) ^ max
-		k.PS &= 0xFFF0
-		k.PS |= FLAGC
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, l, val)
+		COM(k, instr)
 		return
 	case 0005200: // INC
-		d := instr.D()
-		da := k.aget(d, l)
-		val := (k.memread(da, l) + 1) & max
-		k.PS &= 0xFFF1
-		if val&msb == msb {
-			k.PS |= FLAGN | FLAGV
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, l, val)
+		INC(k, instr)
 		return
 	case 0005300: // DEC
 		d := instr.D()
@@ -1108,6 +1076,69 @@ func XOR(c *cpu, i INST) {
 		c.PS |= FLAGZ
 	}
 	c.memwrite(da, WORD, val)
+}
+
+func SOB(c *cpu, i INST) {
+	s := i.S()
+	c.R[s&7]--
+	if c.R[s&7] != 0 {
+		o := i.O()
+		o &= 077
+		o <<= 1
+		c.R[7] -= o
+	}
+}
+
+func CLR(c *cpu, i INST) {
+	l := i.L()
+	c.PS &= 0xFFF0
+	c.PS |= FLAGZ
+	d := i.D()
+	da := c.aget(d, l)
+	c.memwrite(da, l, 0)
+}
+
+func COM(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l) ^ max
+	c.PS &= 0xFFF0
+	c.PS |= FLAGC
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, l, val)
+}
+
+func INC(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := (c.memread(da, l) + 1) & max
+	c.PS &= 0xFFF1
+	if val&msb == msb {
+		c.PS |= FLAGN | FLAGV
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, l, val)
 }
 
 func ASL(c *cpu, i INST) {
