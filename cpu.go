@@ -50,7 +50,7 @@ type cpu struct {
 
 	Input  chan uint8
 	unibus *unibus
-	mmu    mmu
+	mmu    KT11
 }
 
 func (k *cpu) switchmode(newm bool) {
