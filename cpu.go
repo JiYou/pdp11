@@ -253,63 +253,13 @@ func (k *cpu) step() {
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
-		s := instr.S()
-		sa := k.aget(s, l)
-		val := k.memread(sa, l)
-		d := instr.D()
-		da := k.aget(d, l)
-		k.PS &= 0xFFF1
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if da.register() && l == BYTE {
-			l = WORD
-			if val&msb == msb {
-				val |= 0xFF00
-			}
-		}
-		k.memwrite(da, l, val)
+		MOV(k, instr)
 		return
 	case 0020000: // CMP
-		s := instr.S()
-		sa := k.aget(s, l)
-		val1 := k.memread(sa, l)
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := k.memread(da, l)
-		val := (val1 - val2) & max
-		k.PS &= 0xFFF0
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
-			k.PS |= FLAGV
-		}
-		if val1 < val2 {
-			k.PS |= FLAGC
-		}
+		CMP(k, instr)
 		return
 	case 0030000: // BIT
-		s := instr.S()
-		sa := k.aget(s, l)
-		val1 := k.memread(sa, l)
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := k.memread(da, l)
-		val := val1 & val2
-		k.PS &= 0xFFF1
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
+		BIC(k, instr)
 		return
 	case 0040000: // BIC
 		s := instr.S()
@@ -1023,6 +973,86 @@ func (k *cpu) Reset() {
 	k.unibus.rk.rkreset()
 	clkcounter = 0
 	waiting = false
+}
+
+func MOV(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	if l == WORD {
+		msb = 0x8000
+	}
+
+	s := i.S()
+	sa := c.aget(s, l)
+	val := c.memread(sa, l)
+	d := i.D()
+	da := c.aget(d, l)
+	c.PS &= 0xFFF1
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if da.register() && l == BYTE {
+		l = WORD
+		if val&msb == msb {
+			val |= 0xFF00
+		}
+	}
+	c.memwrite(da, l, val)
+}
+
+func CMP(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	s := i.S()
+	sa := c.aget(s, l)
+	val1 := c.memread(sa, l)
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := c.memread(da, l)
+	val := (val1 - val2) & max
+	c.PS &= 0xFFF0
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
+		c.PS |= FLAGV
+	}
+	if val1 < val2 {
+		c.PS |= FLAGC
+	}
+}
+
+func BIC(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	if l == WORD {
+		msb = 0x8000
+	}
+	s := i.S()
+	sa := c.aget(s, l)
+	val1 := c.memread(sa, l)
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := c.memread(da, l)
+	val := val1 & val2
+	c.PS &= 0xFFF1
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
 }
 
 func ASL(c *cpu, i INST) {
