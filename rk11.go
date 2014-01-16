@@ -195,8 +195,7 @@ func (r *RK11) Attach(drive int, file string) {
 		panic(err)
 	}
 	unit := &RK05{
-		rkdisk: make([]byte, imglen),
+		rkdisk: buf,
 	}
-	copy(unit.rkdisk, buf)
 	r.unit[drive] = unit
 }

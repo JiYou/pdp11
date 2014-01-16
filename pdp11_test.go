@@ -56,6 +56,7 @@ func TestPDP(t *testing.T) {
 		pdp := New()
 		pdp.LoadBootrom(01000, BOOTRK05) // word addressed
 		pdp.SetPC(02002)                 // byte addressed
+		pdp.Attach(0, "rk0")
 		go func() {
 			c := pdp.cpu.Input
 			c <- 'u'

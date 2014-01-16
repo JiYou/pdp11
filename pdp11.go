@@ -180,13 +180,14 @@ func (p *PDP1140) Run() {
 	}
 }
 
+func (p *PDP1140) Attach(unit int, name string) { p.unibus.rk.Attach(unit, name) }
+
 func New() *PDP1140 {
 	var pdp PDP1140
 	pdp.cpu.unibus = &pdp.unibus
 	pdp.unibus.cpu = &pdp.cpu
 	pdp.cpu.mmu.cpu = &pdp.cpu
 	pdp.unibus.rk.unibus = &pdp.unibus
-	pdp.unibus.rk.Attach(0, "rk0")
 	pdp.cpu.Reset()
 	return &pdp
 }
