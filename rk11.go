@@ -22,6 +22,7 @@ type RK11 struct {
 
 type RK05 struct {
 	rkdisk []byte // rk0 disk image
+	locked bool
 }
 
 func (r *RK11) read16(a uint18) uint16 {
@@ -79,22 +80,25 @@ func (r *RK11) Step() {
 	if !r.running {
 		return
 	}
-	var w bool
-	switch (r.RKCS & 017) >> 1 {
-	case 0:
-		return
-	case 1:
-		w = true
-	case 2:
-		w = false
-	default:
-		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((r.RKCS & 017) >> 1)))
-	}
-	//fmt.Println("rkrwsec: RKBA:", r.RKBA, "RKWC:", r.RKWC, "cylinder:", r.cylinder, "sector:", r.sector)
 	if r.unit[r.drive] == nil {
 		r.rkerror(RKNXD)
 	}
 	unit := r.unit[r.drive]
+	var w bool
+	switch (r.RKCS & 017) >> 1 {
+	case 01:
+		w = true
+	case 02:
+		w = false
+	case 07:
+		unit.locked = true
+		r.running = false
+		r.ready()
+		return
+	default:
+		panic(fmt.Sprintf("unimplemented RK05 operation %#o", ((r.RKCS & 017) >> 1)))
+	}
+	//fmt.Println("rkrwsec: RKBA:", r.RKBA, "RKWC:", r.RKWC, "cylinder:", r.cylinder, "sector:", r.sector)
 	if r.cylinder > 0312 {
 		r.rkerror(RKNXC)
 	}
@@ -143,6 +147,9 @@ func (r *RK11) rkgo() {
 	case 0:
 		r.rkreset()
 	case 1, 2:
+		r.running = true
+		r.rknotready()
+	case 07:
 		r.running = true
 		r.rknotready()
 	default:
