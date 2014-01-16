@@ -226,7 +226,7 @@ const (
 )
 
 func (k *cpu) step() {
-	var max, maxp, msb int
+	var max int
 	if waiting {
 		select {
 		case v, ok := <-k.unibus.cons.Input:
@@ -244,12 +244,8 @@ func (k *cpu) step() {
 	l := instr.L()
 	if l == WORD {
 		max = 0xFFFF
-		maxp = 0x7FFF
-		msb = 0x8000
 	} else {
 		max = 0xFF
-		maxp = 0x7F
-		msb = 0x80
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
@@ -319,169 +315,28 @@ func (k *cpu) step() {
 		INC(k, instr)
 		return
 	case 0005300: // DEC
-		d := instr.D()
-		da := k.aget(d, l)
-		val := (k.memread(da, l) - 1) & max
-		k.PS &= 0xFFF1
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if val == maxp {
-			k.PS |= FLAGV
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, l, val)
+		DEC(k, instr)
 		return
 	case 0005400: // NEG
-		d := instr.D()
-		da := k.aget(d, l)
-		val := (-k.memread(da, l)) & max
-		k.PS &= 0xFFF0
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if val == 0 {
-			k.PS |= FLAGZ
-		} else {
-			k.PS |= FLAGC
-		}
-		if val == 0x8000 {
-			k.PS |= FLAGV
-		}
-		k.memwrite(da, l, val)
+		NEG(k, instr)
 		return
 	case 0005500: // ADC
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		if k.PS&FLAGC == FLAGC {
-			k.PS &= 0xFFF0
-			if (val+1)&msb == msb {
-				k.PS |= FLAGN
-			}
-			if val == max {
-				k.PS |= FLAGZ
-			}
-			if val == 0077777 {
-				k.PS |= FLAGV
-			}
-			if val == 0177777 {
-				k.PS |= FLAGC
-			}
-			k.memwrite(da, l, (val+1)&max)
-		} else {
-			k.PS &= 0xFFF0
-			if val&msb == msb {
-				k.PS |= FLAGN
-			}
-			if val == 0 {
-				k.PS |= FLAGZ
-			}
-		}
+		ADC(k, instr)
 		return
 	case 0005600: // SBC
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		if k.PS&FLAGC == FLAGC {
-			k.PS &= 0xFFF0
-			if (val-1)&msb == msb {
-				k.PS |= FLAGN
-			}
-			if val == 1 {
-				k.PS |= FLAGZ
-			}
-			if val != 0 {
-				k.PS |= FLAGC
-			}
-			if val == 0100000 {
-				k.PS |= FLAGV
-			}
-			k.memwrite(da, l, (val-1)&max)
-		} else {
-			k.PS &= 0xFFF0
-			if val&msb == msb {
-				k.PS |= FLAGN
-			}
-			if val == 0 {
-				k.PS |= FLAGZ
-			}
-			if val == 0100000 {
-				k.PS |= FLAGV
-			}
-			k.PS |= FLAGC
-		}
+		SBC(k, instr)
 		return
 	case 0005700: // TST
 		TST(k, instr)
 		return
 	case 0006000: // ROR
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		if k.PS&FLAGC == FLAGC {
-			val |= max + 1
-		}
-		k.PS &= 0xFFF0
-		if val&1 == 1 {
-			k.PS |= FLAGC
-		}
-		if val&(max+1) != 0 {
-			k.PS |= FLAGN
-		}
-		if !(val&max != 0) {
-			k.PS |= FLAGZ
-		}
-		if xor(val&1 == 1, val&(max+1) != 0) {
-			k.PS |= FLAGV
-		}
-		val >>= 1
-		k.memwrite(da, l, val)
+		ROR(k, instr)
 		return
 	case 0006100: // ROL
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l) << 1
-		if k.PS&FLAGC == FLAGC {
-			val |= 1
-		}
-		k.PS &= 0xFFF0
-		if val&(max+1) != 0 {
-			k.PS |= FLAGC
-		}
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if !(val&max != 0) {
-			k.PS |= FLAGZ
-		}
-		if (val^(val>>1))&msb != 0 {
-			k.PS |= FLAGV
-		}
-		val &= max
-		k.memwrite(da, l, val)
+		ROL(k, instr)
 		return
 	case 0006200: // ASR
-		d := instr.D()
-		da := k.aget(d, l)
-		val := k.memread(da, l)
-		k.PS &= 0xFFF0
-		if val&1 == 1 {
-			k.PS |= FLAGC
-		}
-		if val&msb == msb {
-			k.PS |= FLAGN
-		}
-		if xor(val&msb != 0, val&1 == 1) {
-			k.PS |= FLAGV
-		}
-		val = (val & msb) | (val >> 1)
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		k.memwrite(da, l, val)
+		ASR(k, instr)
 		return
 	case 0006300: // ASL
 		ASL(k, instr)
@@ -1141,6 +996,164 @@ func INC(c *cpu, i INST) {
 	c.memwrite(da, l, val)
 }
 
+func DEC(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	maxp := 0x7f
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+		maxp = 0x7FFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := (c.memread(da, l) - 1) & max
+	c.PS &= 0xFFF1
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if val == maxp {
+		c.PS |= FLAGV
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, l, val)
+}
+
+func NEG(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := (-c.memread(da, l)) & max
+	c.PS &= 0xFFF0
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if val == 0 {
+		c.PS |= FLAGZ
+	} else {
+		c.PS |= FLAGC
+	}
+	if val == 0x8000 {
+		c.PS |= FLAGV
+	}
+	c.memwrite(da, l, val)
+}
+
+func ADC(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	if c.PS.C() {
+		c.PS &= 0xFFF0
+		if (val+1)&msb == msb {
+			c.PS |= FLAGN
+		}
+		if val == max {
+			c.PS |= FLAGZ
+		}
+		if val == 0077777 {
+			c.PS |= FLAGV
+		}
+		if val == 0177777 {
+			c.PS |= FLAGC
+		}
+		c.memwrite(da, l, (val+1)&max)
+	} else {
+		c.PS &= 0xFFF0
+		if val&msb == msb {
+			c.PS |= FLAGN
+		}
+		if val == 0 {
+			c.PS |= FLAGZ
+		}
+	}
+}
+
+func SBC(c *cpu, i INST) {
+
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		msb = 0x8000
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	if c.PS.C() {
+		c.PS &= 0xFFF0
+		if (val-1)&msb == msb {
+			c.PS |= FLAGN
+		}
+		if val == 1 {
+			c.PS |= FLAGZ
+		}
+		if val != 0 {
+			c.PS |= FLAGC
+		}
+		if val == 0100000 {
+			c.PS |= FLAGV
+		}
+		c.memwrite(da, l, (val-1)&max)
+	} else {
+		c.PS &= 0xFFF0
+		if val&msb == msb {
+			c.PS |= FLAGN
+		}
+		if val == 0 {
+			c.PS |= FLAGZ
+		}
+		if val == 0100000 {
+			c.PS |= FLAGV
+		}
+		c.PS |= FLAGC
+	}
+}
+
+func ASR(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	if l == WORD {
+		msb = 0x8000
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	c.PS &= 0xFFF0
+	if val&1 == 1 {
+		c.PS |= FLAGC
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if xor(val&msb != 0, val&1 == 1) {
+		c.PS |= FLAGV
+	}
+	val = (val & msb) | (val >> 1)
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	c.memwrite(da, l, val)
+}
+
 func ASL(c *cpu, i INST) {
 	l := i.L()
 	msb := 0x80
@@ -1186,6 +1199,66 @@ func TST(c *cpu, i INST) {
 	if val == 0 {
 		c.PS |= FLAGZ
 	}
+}
+
+func ROR(c *cpu, i INST) {
+	l := i.L()
+	max := 0xFF
+	if l == WORD {
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l)
+	if c.PS.C() {
+		val |= max + 1
+	}
+	c.PS &= 0xFFF0
+	if val&1 == 1 {
+		c.PS |= FLAGC
+	}
+	if val&(max+1) != 0 {
+		c.PS |= FLAGN
+	}
+	if !(val&max != 0) {
+		c.PS |= FLAGZ
+	}
+	if xor(val&1 == 1, val&(max+1) != 0) {
+		c.PS |= FLAGV
+	}
+	val >>= 1
+	c.memwrite(da, l, val)
+}
+
+func ROL(c *cpu, i INST) {
+	l := i.L()
+	msb := 0x80
+	max := 0xFF
+	if l == WORD {
+		max = 0xFFFF
+		msb = 0x8000
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val := c.memread(da, l) << 1
+	if c.PS.C() {
+		val |= 1
+	}
+	c.PS &= 0xFFF0
+	if val&(max+1) != 0 {
+		c.PS |= FLAGC
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
+	if !(val&max != 0) {
+		c.PS |= FLAGZ
+	}
+	if (val^(val>>1))&msb != 0 {
+		c.PS |= FLAGV
+	}
+	val &= max
+	c.memwrite(da, l, val)
 }
 
 func SWAB(c *cpu, i INST) {
