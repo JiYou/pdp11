@@ -270,50 +270,10 @@ func (k *cpu) step() {
 	}
 	switch instr & 0170000 {
 	case 0060000: // ADD
-		s := instr.S()
-		sa := k.aget(s, 2)
-		val1 := k.memread(sa, 2)
-		d := instr.D()
-		da := k.aget(d, 2)
-		val2 := k.memread(da, 2)
-		val := (val1 + val2) & 0xFFFF
-		k.PS &= 0xFFF0
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x8000 == 0x8000 {
-			k.PS |= FLAGN
-		}
-		if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
-			k.PS |= FLAGV
-		}
-		if int(val1)+int(val2) >= 0xFFFF {
-			k.PS |= FLAGC
-		}
-		k.memwrite(da, 2, val)
+		ADD(k, instr)
 		return
 	case 0160000: // SUB
-		s := instr.S()
-		sa := k.aget(s, 2)
-		val1 := k.memread(sa, 2)
-		d := instr.D()
-		da := k.aget(d, 2)
-		val2 := k.memread(da, 2)
-		val := (val2 - val1) & 0xFFFF
-		k.PS &= 0xFFF0
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x8000 == 0x8000 {
-			k.PS |= FLAGN
-		}
-		if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
-			k.PS |= FLAGV
-		}
-		if val1 > val2 {
-			k.PS |= FLAGC
-		}
-		k.memwrite(da, 2, val)
+		SUB(k, instr)
 		return
 	}
 	switch instr & 0177000 {
@@ -322,6 +282,7 @@ func (k *cpu) step() {
 		d := instr.D()
 		val := k.aget(d, l)
 		if val.register() {
+			panic("WHAT WHAT")
 			break
 		}
 		k.push(uint16(k.R[s&7]))
@@ -329,57 +290,10 @@ func (k *cpu) step() {
 		k.R[7] = int(val)
 		return
 	case 0070000: // MUL
-		s := instr.S()
-		val1 := k.R[s&7]
-		if val1&0x8000 == 0x8000 {
-			val1 = -((0xFFFF ^ val1) + 1)
-		}
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := int(k.memread(da, 2))
-		if val2&0x8000 == 0x8000 {
-			val2 = -((0xFFFF ^ val2) + 1)
-		}
-		val := val1 * val2
-		k.R[s&7] = (val & 0xFFFF0000) >> 16
-		k.R[(s&7)|1] = val & 0xFFFF
-		k.PS &= 0xFFF0
-		if val&0x80000000 == 0x80000000 {
-			k.PS |= FLAGN
-		}
-		if val&0xFFFFFFFF == 0 {
-			k.PS |= FLAGZ
-		}
-		if val < (1<<15) || val >= ((1<<15)-1) {
-			k.PS |= FLAGC
-		}
+		MUL(k, instr)
 		return
 	case 0071000: // DIV
-		s := instr.S()
-		val1 := (k.R[s&7] << 16) | k.R[(s&7)|1]
-		d := instr.D()
-		da := k.aget(d, l)
-		val2 := int(k.memread(da, 2))
-		k.PS &= 0xFFF0
-		if val2 == 0 {
-			k.PS |= FLAGC
-			return
-		}
-		if val1/val2 >= 0x10000 {
-			k.PS |= FLAGV
-			return
-		}
-		k.R[s&7] = (val1 / val2) & 0xFFFF
-		k.R[(s&7)|1] = (val1 % val2) & 0xFFFF
-		if k.R[s&7] == 0 {
-			k.PS |= FLAGZ
-		}
-		if k.R[s&7]&0100000 == 0100000 {
-			k.PS |= FLAGN
-		}
-		if val1 == 0 {
-			k.PS |= FLAGV
-		}
+		DIV(k, instr)
 		return
 	case 0072000: // ASH
 		s := instr.S()
@@ -1074,6 +988,114 @@ func BIS(c *cpu, i INST) {
 		c.PS |= FLAGN
 	}
 	c.memwrite(da, l, val)
+}
+
+func ADD(c *cpu, i INST) {
+
+	s := i.S()
+	sa := c.aget(s, WORD)
+	val1 := c.memread(sa, WORD)
+	d := i.D()
+	da := c.aget(d, WORD)
+	val2 := c.memread(da, WORD)
+	val := (val1 + val2) & 0xFFFF
+	c.PS &= 0xFFF0
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
+	if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
+		c.PS |= FLAGV
+	}
+	if int(val1)+int(val2) >= 0xFFFF {
+		c.PS |= FLAGC
+	}
+	c.memwrite(da, WORD, val)
+}
+
+func SUB(c *cpu, i INST) {
+
+	s := i.S()
+	sa := c.aget(s, WORD)
+	val1 := c.memread(sa, WORD)
+	d := i.D()
+	da := c.aget(d, WORD)
+	val2 := c.memread(da, WORD)
+	val := (val2 - val1) & 0xFFFF
+	c.PS &= 0xFFF0
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
+	if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
+		c.PS |= FLAGV
+	}
+	if val1 > val2 {
+		c.PS |= FLAGC
+	}
+	c.memwrite(da, WORD, val)
+}
+
+func MUL(c *cpu, i INST) {
+	l := i.L()
+	s := i.S()
+	val1 := c.R[s&7]
+	if val1&0x8000 == 0x8000 {
+		val1 = -((0xFFFF ^ val1) + 1)
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := int(c.memread(da, WORD))
+	if val2&0x8000 == 0x8000 {
+		val2 = -((0xFFFF ^ val2) + 1)
+	}
+	val := val1 * val2
+	c.R[s&7] = (val & 0xFFFF0000) >> 16
+	c.R[(s&7)|1] = val & 0xFFFF
+	c.PS &= 0xFFF0
+	if val&0x80000000 == 0x80000000 {
+		c.PS |= FLAGN
+	}
+	if val&0xFFFFFFFF == 0 {
+		c.PS |= FLAGZ
+	}
+	if val < (1<<15) || val >= ((1<<15)-1) {
+		c.PS |= FLAGC
+	}
+}
+
+func DIV(c *cpu, i INST) {
+
+	l := i.L()
+	s := i.S()
+	val1 := (c.R[s&7] << 16) | c.R[(s&7)|1]
+	d := i.D()
+	da := c.aget(d, l)
+	val2 := int(c.memread(da, WORD))
+	c.PS &= 0xFFF0
+	if val2 == 0 {
+		c.PS |= FLAGC
+		return
+	}
+	if val1/val2 >= 0x10000 {
+		c.PS |= FLAGV
+		return
+	}
+	c.R[s&7] = (val1 / val2) & 0xFFFF
+	c.R[(s&7)|1] = (val1 % val2) & 0xFFFF
+	if c.R[s&7] == 0 {
+		c.PS |= FLAGZ
+	}
+	if c.R[s&7]&0100000 == 0100000 {
+		c.PS |= FLAGN
+	}
+	if val1 == 0 {
+		c.PS |= FLAGV
+	}
 }
 
 func ASL(c *cpu, i INST) {
