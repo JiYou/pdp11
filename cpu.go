@@ -296,42 +296,7 @@ func (k *cpu) step() {
 		DIV(k, instr)
 		return
 	case 0072000: // ASH
-		s := instr.S()
-		val1 := k.R[s&7]
-		d := instr.D()
-		da := k.aget(d, 2)
-		val2 := uint(k.memread(da, 2) & 077)
-		k.PS &= 0xFFF0
-		var val int
-		if val2&040 != 0 {
-			val2 = (077 ^ val2) + 1
-			if val1&0100000 == 0100000 {
-				val = 0xFFFF ^ (0xFFFF >> val2)
-				val |= val1 >> val2
-			} else {
-				val = val1 >> val2
-			}
-			shift := 1 << (val2 - 1)
-			if val1&shift == shift {
-				k.PS |= FLAGC
-			}
-		} else {
-			val = (val1 << val2) & 0xFFFF
-			shift := 1 << (16 - val2)
-			if val1&shift == shift {
-				k.PS |= FLAGC
-			}
-		}
-		k.R[s&7] = val
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0100000 == 0100000 {
-			k.PS |= FLAGN
-		}
-		if xor(val&0100000 != 0, val1&0100000 != 0) {
-			k.PS |= FLAGV
-		}
+		ASH(k, instr)
 		return
 	case 0073000: // ASHC
 		s := instr.S()
@@ -1094,6 +1059,45 @@ func DIV(c *cpu, i INST) {
 		c.PS |= FLAGN
 	}
 	if val1 == 0 {
+		c.PS |= FLAGV
+	}
+}
+
+func ASH(c *cpu, i INST) {
+	s := i.S()
+	val1 := c.R[s&7]
+	d := i.D()
+	da := c.aget(d, WORD)
+	val2 := uint(c.memread(da, WORD) & 077)
+	c.PS &= 0xFFF0
+	var val int
+	if val2&040 != 0 {
+		val2 = (077 ^ val2) + 1
+		if val1&0100000 == 0100000 {
+			val = 0xFFFF ^ (0xFFFF >> val2)
+			val |= val1 >> val2
+		} else {
+			val = val1 >> val2
+		}
+		shift := 1 << (val2 - 1)
+		if val1&shift == shift {
+			c.PS |= FLAGC
+		}
+	} else {
+		val = (val1 << val2) & 0xFFFF
+		shift := 1 << (16 - val2)
+		if val1&shift == shift {
+			c.PS |= FLAGC
+		}
+	}
+	c.R[s&7] = val
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0100000 == 0100000 {
+		c.PS |= FLAGN
+	}
+	if xor(val&0100000 != 0, val1&0100000 != 0) {
 		c.PS |= FLAGV
 	}
 }
