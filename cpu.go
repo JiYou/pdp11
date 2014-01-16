@@ -40,9 +40,16 @@ func (p PSW) N() bool { return p&FLAGN == FLAGN }
 func (p PSW) Z() bool { return p&FLAGZ == FLAGZ }
 func (p PSW) V() bool { return p&FLAGV == FLAGV }
 func (p PSW) C() bool { return p&FLAGC == FLAGC }
+
 func (p *PSW) testAndSetZero(v int) {
 	if v == 0 {
 		*p |= FLAGZ
+	}
+}
+
+func (p *PSW) testAndSetNeg(v int) {
+	if v != 0 {
+		*p |= FLAGN
 	}
 }
 
@@ -542,12 +549,8 @@ func MOV(c *cpu, i INST) {
 	d := i.D()
 	da := c.aget(d, l)
 	c.PS &= 0xFFF1
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetNeg(val & msb)
+	c.PS.testAndSetZero(val)
 	if da.register() && l == BYTE {
 		l = WORD
 		if val&msb == msb {
@@ -573,12 +576,8 @@ func CMP(c *cpu, i INST) {
 	val2 := c.memread(da, l)
 	val := (val1 - val2) & max
 	c.PS &= 0xFFF0
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & msb)
 	if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
 		c.PS |= FLAGV
 	}
@@ -601,12 +600,8 @@ func BIT(c *cpu, i INST) {
 	val2 := c.memread(da, l)
 	val := val1 & val2
 	c.PS &= 0xFFF1
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & msb)
 }
 
 func BIC(c *cpu, i INST) {
@@ -626,12 +621,8 @@ func BIC(c *cpu, i INST) {
 	val2 := c.memread(da, l)
 	val := (max ^ val1) & val2
 	c.PS &= 0xFFF1
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&msb != 0 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & msb)
 	c.memwrite(da, l, val)
 }
 
@@ -649,17 +640,12 @@ func BIS(c *cpu, i INST) {
 	val2 := c.memread(da, l)
 	val := val1 | val2
 	c.PS &= 0xFFF1
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & msb)
 	c.memwrite(da, l, val)
 }
 
 func ADD(c *cpu, i INST) {
-
 	s := i.S()
 	sa := c.aget(s, WORD)
 	val1 := c.memread(sa, WORD)
@@ -668,12 +654,8 @@ func ADD(c *cpu, i INST) {
 	val2 := c.memread(da, WORD)
 	val := (val1 + val2) & 0xFFFF
 	c.PS &= 0xFFF0
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & 0x8000)
 	if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
 		c.PS |= FLAGV
 	}
@@ -692,12 +674,8 @@ func SUB(c *cpu, i INST) {
 	val2 := c.memread(da, WORD)
 	val := (val2 - val1) & 0xFFFF
 	c.PS &= 0xFFF0
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & 0x8000)
 	if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
 		c.PS |= FLAGV
 	}
@@ -737,12 +715,8 @@ func MUL(c *cpu, i INST) {
 	c.R[s&7] = (val & 0xFFFF0000) >> 16
 	c.R[(s&7)|1] = val & 0xFFFF
 	c.PS &= 0xFFF0
-	if val&0x80000000 == 0x80000000 {
-		c.PS |= FLAGN
-	}
-	if val&0xFFFFFFFF == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetNeg(val & 0x80000000)
+	c.PS.testAndSetZero(val & 0xFFFFFFFF)
 	if val < (1<<15) || val >= ((1<<15)-1) {
 		c.PS |= FLAGC
 	}
@@ -806,12 +780,8 @@ func ASH(c *cpu, i INST) {
 		}
 	}
 	c.R[s&7] = val
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&0100000 == 0100000 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & 0100000)
 	if xor(val&0100000 != 0, val1&0100000 != 0) {
 		c.PS |= FLAGV
 	}
@@ -844,12 +814,8 @@ func ASHC(c *cpu, i INST) {
 	}
 	c.R[s&7] = (val >> 16) & 0xFFFF
 	c.R[(s&7)|1] = val & 0xFFFF
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&0x80000000 != 0 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & 0x80000000)
 	if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
 		c.PS |= FLAGV
 	}
@@ -863,12 +829,8 @@ func XOR(c *cpu, i INST) {
 	val2 := c.memread(da, WORD)
 	val := val1 ^ val2
 	c.PS &= 0xFFF1
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
-	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
+	c.PS.testAndSetNeg(val & 0x8000)
 	c.memwrite(da, WORD, val)
 }
 
@@ -905,12 +867,8 @@ func COM(c *cpu, i INST) {
 	val := c.memread(da, l) ^ max
 	c.PS &= 0xFFF0
 	c.PS |= FLAGC
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetNeg(val & msb)
+	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
 }
 
@@ -929,9 +887,7 @@ func INC(c *cpu, i INST) {
 	if val&msb == msb {
 		c.PS |= FLAGN | FLAGV
 	}
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
 }
 
@@ -949,9 +905,7 @@ func DEC(c *cpu, i INST) {
 	da := c.aget(d, l)
 	val := (c.memread(da, l) - 1) & max
 	c.PS &= 0xFFF1
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & msb)
 	if val == maxp {
 		c.PS |= FLAGV
 	}
@@ -971,9 +925,7 @@ func NEG(c *cpu, i INST) {
 	da := c.aget(d, l)
 	val := (-c.memread(da, l)) & max
 	c.PS &= 0xFFF0
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & msb)
 	if val == 0 {
 		c.PS |= FLAGZ
 	} else {
@@ -1077,9 +1029,7 @@ func ASR(c *cpu, i INST) {
 	if val&1 == 1 {
 		c.PS |= FLAGC
 	}
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & msb)
 	if xor(val&msb != 0, val&1 == 1) {
 		c.PS |= FLAGV
 	}
@@ -1141,9 +1091,7 @@ func TST(c *cpu, i INST) {
 	da := c.aget(d, l)
 	val := c.memread(da, l)
 	c.PS &= 0xFFF0
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & msb)
 	c.PS.testAndSetZero(val)
 }
 
@@ -1194,9 +1142,7 @@ func ROL(c *cpu, i INST) {
 	if val&(max+1) != 0 {
 		c.PS |= FLAGC
 	}
-	if val&msb == msb {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & msb)
 	if !(val&max != 0) {
 		c.PS |= FLAGZ
 	}
@@ -1215,9 +1161,7 @@ func SWAB(c *cpu, i INST) {
 	val = ((val >> 8) | (val << 8)) & 0xFFFF
 	c.PS &= 0xFFF0
 	c.PS.testAndSetZero(val & 0xff)
-	if val&0x80 == 0x80 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(val & 0x80)
 	c.memwrite(da, l, val)
 }
 
@@ -1261,9 +1205,7 @@ func MFPI(c *cpu, i INST) {
 	c.PS &= 0xFFF0
 	c.PS |= FLAGC
 	c.PS.testAndSetZero(int(val))
-	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
-	}
+	c.PS.testAndSetNeg(int(val & 0x8000))
 }
 
 func MTPI(c *cpu, i INST) {
