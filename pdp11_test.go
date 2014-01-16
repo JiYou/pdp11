@@ -64,7 +64,7 @@ func TestPDP(t *testing.T) {
 			c <- 'i'
 			c <- 'x'
 			c <- '\n'
-			time.Sleep(10 * time.Microsecond)
+			time.Sleep(5 * time.Microsecond)
 			for _, c := range tt.input {
 				pdp.cpu.Input <- uint8(c)
 			}

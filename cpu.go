@@ -40,6 +40,7 @@ func (p PSW) N() bool { return p&FLAGN == FLAGN }
 func (p PSW) Z() bool { return p&FLAGZ == FLAGZ }
 func (p PSW) V() bool { return p&FLAGV == FLAGV }
 func (p PSW) C() bool { return p&FLAGC == FLAGC }
+func (p *PSW) testAndSetZero(v uint16) { if v == 0 { *p |= FLAGZ } }
 
 type cpu struct {
 	R                 [8]int // registers
@@ -226,7 +227,6 @@ const (
 )
 
 func (k *cpu) step() {
-	var max int
 	if waiting {
 		select {
 		case v, ok := <-k.unibus.cons.Input:
@@ -241,12 +241,6 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := INST(k.unibus.read16(ia))
-	l := instr.L()
-	if l == WORD {
-		max = 0xFFFF
-	} else {
-		max = 0xFF
-	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
 		MOV(k, instr)
@@ -274,16 +268,7 @@ func (k *cpu) step() {
 	}
 	switch instr & 0177000 {
 	case 0004000: // JSR
-		s := instr.S()
-		d := instr.D()
-		val := k.aget(d, l)
-		if val.register() {
-			panic("WHAT WHAT")
-			break
-		}
-		k.push(uint16(k.R[s&7]))
-		k.R[s&7] = k.R[7]
-		k.R[7] = int(val)
+		JSR(k, instr)
 		return
 	case 0070000: // MUL
 		MUL(k, instr)
@@ -342,14 +327,7 @@ func (k *cpu) step() {
 		ASL(k, instr)
 		return
 	case 0006700: // SXT
-		d := instr.D()
-		da := k.aget(d, l)
-		if k.PS&FLAGN == FLAGN {
-			k.memwrite(da, l, max)
-		} else {
-			k.PS |= FLAGZ
-			k.memwrite(da, l, 0)
-		}
+		SXT(k, instr)
 		return
 	}
 	switch instr & 0177700 {
@@ -363,65 +341,10 @@ func (k *cpu) step() {
 		MARK(k, instr)
 		break
 	case 0006500: // MFPI
-		var val uint16
-		d := instr.D()
-		da := k.aget(d, 2)
-		switch {
-		case da == -7:
-			// val = (curuser == k.prevuser) ? R[6] : (prevuser ? k.USP : KSP);
-			if k.curuser == k.prevuser {
-				val = uint16(k.R[6])
-			} else {
-				if k.prevuser {
-					val = k.USP
-				} else {
-					val = k.KSP
-				}
-			}
-		case da.register():
-			panic("invalid MFPI instruction")
-		default:
-			val = k.unibus.read16(k.mmu.decode(uint16(da), false, k.prevuser))
-		}
-		k.push(val)
-		k.PS &= 0xFFF0
-		k.PS |= FLAGC
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x8000 == 0x8000 {
-			k.PS |= FLAGN
-		}
+		MFPI(k, instr)
 		return
 	case 0006600: // MTPI
-		d := instr.D()
-		da := k.aget(d, 2)
-		val := uint16(k.pop())
-		switch {
-		case da == -7:
-			if k.curuser == k.prevuser {
-				k.R[6] = int(val)
-			} else {
-				if k.prevuser {
-					k.USP = val
-				} else {
-					k.KSP = val
-				}
-			}
-		case da.register():
-			panic("invalid MTPI instrution")
-		default:
-			sa := k.mmu.decode(uint16(da), true, k.prevuser)
-			k.unibus.write16(sa, val)
-		}
-		k.PS &= 0xFFF0
-		k.PS |= FLAGC
-		if val == 0 {
-			k.PS |= FLAGZ
-		}
-		if val&0x8000 == 0x8000 {
-			k.PS |= FLAGN
-		}
+		MTPI(k, instr)
 		return
 	}
 	if (instr & 0177770) == 0000200 { // RTS
@@ -757,7 +680,6 @@ func ADD(c *cpu, i INST) {
 }
 
 func SUB(c *cpu, i INST) {
-
 	s := i.S()
 	sa := c.aget(s, WORD)
 	val1 := c.memread(sa, WORD)
@@ -779,6 +701,19 @@ func SUB(c *cpu, i INST) {
 		c.PS |= FLAGC
 	}
 	c.memwrite(da, WORD, val)
+}
+
+func JSR(c *cpu, i INST) {
+	l := i.L()
+	s := i.S()
+	d := i.D()
+	val := c.aget(d, l)
+	if val.register() {
+		panic("WHAT WHAT")
+	}
+	c.push(uint16(c.R[s&7]))
+	c.R[s&7] = c.R[7]
+	c.R[7] = int(val)
 }
 
 func MUL(c *cpu, i INST) {
@@ -1182,6 +1117,22 @@ func ASL(c *cpu, i INST) {
 	c.memwrite(da, l, val)
 }
 
+func SXT(c *cpu, i INST) {
+	l := i.L()
+	max := 0xFF
+	if l == WORD {
+		max = 0xFFFF
+	}
+	d := i.D()
+	da := c.aget(d, l)
+	if c.PS&FLAGN == FLAGN {
+		c.memwrite(da, l, max)
+	} else {
+		c.PS |= FLAGZ
+		c.memwrite(da, l, 0)
+	}
+}
+
 func TST(c *cpu, i INST) {
 	l := i.L()
 	msb := 0x80
@@ -1290,4 +1241,67 @@ func MARK(c *cpu, i INST) {
 	c.R[6] = c.R[7] + int(i.O())<<1
 	c.R[7] = c.R[5]
 	c.R[5] = int(c.pop())
+}
+
+func MFPI(c *cpu, i INST) {
+	var val uint16
+	d := i.D()
+	da := c.aget(d, WORD)
+	switch {
+	case da == -7:
+		// val = (curuser == k.prevuser) ? R[6] : (prevuser ? k.USP : KSP);
+		if c.curuser == c.prevuser {
+			val = uint16(c.R[6])
+		} else {
+			if c.prevuser {
+				val = c.USP
+			} else {
+				val = c.KSP
+			}
+		}
+	case da.register():
+		panic("invalid MFPI instruction")
+	default:
+		val = c.unibus.read16(c.mmu.decode(uint16(da), false, c.prevuser))
+	}
+	c.push(val)
+	c.PS &= 0xFFF0
+	c.PS |= FLAGC
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
+}
+
+func MTPI(c *cpu, i INST) {
+	d := i.D()
+	da := c.aget(d, WORD)
+	val := uint16(c.pop())
+	switch {
+	case da == -7:
+		if c.curuser == c.prevuser {
+			c.R[6] = int(val)
+		} else {
+			if c.prevuser {
+				c.USP = val
+			} else {
+				c.KSP = val
+			}
+		}
+	case da.register():
+		panic("invalid MTPI instrution")
+	default:
+		sa := c.mmu.decode(uint16(da), true, c.prevuser)
+		c.unibus.write16(sa, val)
+	}
+	c.PS &= 0xFFF0
+	c.PS |= FLAGC
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
 }
