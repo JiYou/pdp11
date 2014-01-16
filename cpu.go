@@ -25,7 +25,7 @@ const (
 	INTRK     = 0220
 )
 
-func xor(a, b bool) bool { return (!a && b) || (a && !b) }
+func xor(a, b bool) bool { return a != b }
 
 const (
 	FLAGN = 8
@@ -259,7 +259,7 @@ func (k *cpu) step() {
 		CMP(k, instr)
 		return
 	case 0030000: // BIT
-		BIC(k, instr)
+		BIT(k, instr)
 		return
 	case 0040000: // BIC
 		s := instr.S()
@@ -1033,7 +1033,7 @@ func CMP(c *cpu, i INST) {
 	}
 }
 
-func BIC(c *cpu, i INST) {
+func BIT(c *cpu, i INST) {
 	l := i.L()
 	msb := 0x80
 	if l == WORD {
