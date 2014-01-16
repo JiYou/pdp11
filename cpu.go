@@ -40,7 +40,11 @@ func (p PSW) N() bool { return p&FLAGN == FLAGN }
 func (p PSW) Z() bool { return p&FLAGZ == FLAGZ }
 func (p PSW) V() bool { return p&FLAGV == FLAGV }
 func (p PSW) C() bool { return p&FLAGC == FLAGC }
-func (p *PSW) testAndSetZero(v uint16) { if v == 0 { *p |= FLAGZ } }
+func (p *PSW) testAndSetZero(v int) {
+	if v == 0 {
+		*p |= FLAGZ
+	}
+}
 
 type cpu struct {
 	R                 [8]int // registers
@@ -951,9 +955,7 @@ func DEC(c *cpu, i INST) {
 	if val == maxp {
 		c.PS |= FLAGV
 	}
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
 }
 
@@ -1022,7 +1024,6 @@ func ADC(c *cpu, i INST) {
 }
 
 func SBC(c *cpu, i INST) {
-
 	l := i.L()
 	msb := 0x80
 	max := 0xFF
@@ -1083,9 +1084,7 @@ func ASR(c *cpu, i INST) {
 		c.PS |= FLAGV
 	}
 	val = (val & msb) | (val >> 1)
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
 }
 
@@ -1111,9 +1110,7 @@ func ASL(c *cpu, i INST) {
 		c.PS |= FLAGV
 	}
 	val = (val << 1) & max
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
 }
 
@@ -1147,9 +1144,7 @@ func TST(c *cpu, i INST) {
 	if val&msb == msb {
 		c.PS |= FLAGN
 	}
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val)
 }
 
 func ROR(c *cpu, i INST) {
@@ -1219,9 +1214,7 @@ func SWAB(c *cpu, i INST) {
 	val := c.memread(da, l)
 	val = ((val >> 8) | (val << 8)) & 0xFFFF
 	c.PS &= 0xFFF0
-	if (val & 0xFF) == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(val & 0xff)
 	if val&0x80 == 0x80 {
 		c.PS |= FLAGN
 	}
@@ -1267,9 +1260,7 @@ func MFPI(c *cpu, i INST) {
 	c.push(val)
 	c.PS &= 0xFFF0
 	c.PS |= FLAGC
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(int(val))
 	if val&0x8000 == 0x8000 {
 		c.PS |= FLAGN
 	}
@@ -1298,9 +1289,7 @@ func MTPI(c *cpu, i INST) {
 	}
 	c.PS &= 0xFFF0
 	c.PS |= FLAGC
-	if val == 0 {
-		c.PS |= FLAGZ
-	}
+	c.PS.testAndSetZero(int(val))
 	if val&0x8000 == 0x8000 {
 		c.PS |= FLAGN
 	}
