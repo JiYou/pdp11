@@ -86,7 +86,10 @@ func (p *PDP1140) Step() {
 			panic(t)
 		}
 	}()
+	p.step()
+}
 
+func (p *PDP1140) step() {
 	p.cpu.step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
 		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
@@ -176,7 +179,24 @@ func (p *PDP1140) LoadBootrom(addr uint18, rom []uint16) {
 
 func (p *PDP1140) Run() {
 	for {
-		p.Step()
+		p.run()
+	}
+}
+
+func (p *PDP1140) run() {
+	defer func() {
+		t := recover()
+		switch t := t.(type) {
+		case trap:
+			p.trapat(t.num, t.msg)
+		case nil:
+			// ignore
+		default:
+			panic(t)
+		}
+	}()
+	for {
+		p.step()
 	}
 }
 

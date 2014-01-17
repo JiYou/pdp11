@@ -29,7 +29,7 @@ func main() {
 	const LOADADDR = 01000
 	pdp.LoadBootrom(LOADADDR, pdp11.BOOTRK05)
 	pdp.SetPC(LOADADDR*2 + 2)
-	pdp.Attach(0, "v6unix.dsk")
+	pdp.Attach(0, "rk0")
 	go stdin(pdp.Input)
 	pdp.Run()
 }
