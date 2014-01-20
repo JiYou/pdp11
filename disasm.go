@@ -72,15 +72,15 @@ func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
 		switch m {
 		case 027:
 			a += 2
-			return fmt.Sprintf("$%06o", p.Memory[a>>1])
+			return fmt.Sprintf("$%06o", p.unibus.read16(a))
 		case 037:
 			a += 2
-			return fmt.Sprintf("*%06o", p.Memory[a>>1])
+			return fmt.Sprintf("*%06o", p.unibus.read16(a))
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a+2+uint18(p.Memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("*%06o", (a + 2 + uint18(p.unibus.read16(a))&0xFFFF))
 		case 077:
-			return fmt.Sprintf("**%06o", (a+2+uint18(p.Memory[a>>1]))&0xFFFF)
+			return fmt.Sprintf("**%06o", (a + 2 + uint18(p.unibus.read16(a))&0xFFFF))
 		}
 	}
 	r := rs[m&7]
@@ -99,16 +99,16 @@ func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
 		return "*-(" + r + ")"
 	case 060:
 		a += 2
-		return fmt.Sprintf("%06o (%s)", p.Memory[a>>1], r)
+		return fmt.Sprintf("%06o (%s)", p.unibus.read16(a), r)
 	case 070:
 		a += 2
-		return fmt.Sprintf("*%06o (%s)", p.Memory[a>>1], r)
+		return fmt.Sprintf("*%06o (%s)", p.unibus.read16(a), r)
 	}
 	panic(fmt.Sprintf("disasmaddr: unknown addressing mode, register %v, mode %o", r, m&070))
 }
 
 func (p *PDP1140) disasm(a uint18) string {
-	ins := p.Memory[a>>1]
+	ins := p.unibus.read16(a)
 	msg := "???"
 	l := disasmtable[0]
 	for i := 0; i < len(disasmtable); i++ {

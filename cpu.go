@@ -453,8 +453,8 @@ func (k *cpu) step() {
 		k.switchmode(false)
 		k.push(prev)
 		k.push(uint16(k.R[7]))
-		k.R[7] = int(k.unibus.Memory[vec>>1])
-		k.PS = PSW(k.unibus.Memory[(vec>>1)+1])
+		k.R[7] = int(k.unibus.read16(uint18(vec)))
+		k.PS = PSW(k.unibus.read16(uint18(vec + 2)))
 		if k.prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -521,9 +521,7 @@ func (k *cpu) Reset() {
 	k.prevuser = false
 	k.mmu.SR0 = 0
 	k.unibus.LKS = 1 << 7
-	for i := uint18(0); int(i) < len(k.unibus.Memory); i++ {
-		k.unibus.write16(i, 0)
-	}
+	k.unibus.Reset()
 	for i := 0; i < 16; i++ {
 		k.mmu.pages[i] = createpage(0, 0)
 	}
