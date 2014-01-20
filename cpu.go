@@ -10,8 +10,6 @@ var (
 	interrupts []intr
 )
 
-type intr struct{ vec, pri int }
-
 // traps
 const (
 	INTBUS    = 0004

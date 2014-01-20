@@ -89,10 +89,12 @@ func (p *PDP1140) Step() {
 	p.step()
 }
 
+type intr struct{ vec, pri int }
+
+
 func (p *PDP1140) step() {
 	p.cpu.step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
-		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 		p.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
 	}
@@ -113,6 +115,7 @@ func (p *PDP1140) step() {
 }
 
 func (p *PDP1140) handleinterrupt(vec int) {
+	fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
