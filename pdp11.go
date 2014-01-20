@@ -89,7 +89,6 @@ func (p *PDP1140) Step() {
 
 	p.cpu.step()
 	if len(interrupts) > 0 && interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
-		//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 		p.handleinterrupt(interrupts[0].vec)
 		interrupts = interrupts[1:]
 	}
@@ -110,6 +109,7 @@ func (p *PDP1140) Step() {
 }
 
 func (p *PDP1140) handleinterrupt(vec int) {
+	//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
@@ -120,8 +120,8 @@ func (p *PDP1140) handleinterrupt(vec int) {
 		default:
 			panic(t)
 		}
-		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = PSW(p.Memory[(vec>>1)+1])
+		p.cpu.R[7] = int(p.unibus.read16(uint18(vec)))
+		p.cpu.PS = PSW(p.unibus.read16(uint18(vec + 2)))
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
@@ -152,8 +152,8 @@ func (p *PDP1140) trapat(vec int, msg string) {
 		default:
 			panic(t)
 		}
-		p.cpu.R[7] = int(p.Memory[vec>>1])
-		p.cpu.PS = PSW(p.Memory[(vec>>1)+1])
+		p.cpu.R[7] = int(p.unibus.read16(uint18(vec)))
+		p.cpu.PS = PSW(p.unibus.read16(uint18(vec + 2)))
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}

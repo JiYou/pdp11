@@ -36,7 +36,7 @@ chdir /usr/sys/conf
 cc mkconf.c
 mv a.out mkconf
 ./mkconf
-`, 4 * N},
+`, 3 * N},
 	{`
 ed TEST.C
 a
@@ -48,7 +48,7 @@ w
 q
 cc test.c
 ./a.out
-`, 5 * N},
+`, 4 * N},
 }
 
 func TestPDP(t *testing.T) {
