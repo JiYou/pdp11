@@ -3,7 +3,7 @@ package pdp11
 import "fmt"
 
 type unibus struct {
-	Memory [128 * 1024]uint16
+	Memory [124 * 1024]uint16
 	LKS    uint16
 	cpu    *cpu
 	rk     RK11 // drive 0
@@ -12,6 +12,12 @@ type unibus struct {
 
 // uint18 represents a unibus 18 bit physical address
 type uint18 uint32
+
+func (u *unibus) Reset() {
+	for i := uint18(0); int(i) < len(u.Memory); i++ {
+		u.write16(i, 0)
+	}
+}
 
 func (u *unibus) read16(a uint18) uint16 {
 	switch {

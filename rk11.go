@@ -111,11 +111,11 @@ func (r *RK11) Step() {
 	}
 	for i := 0; i < 256 && r.RKWC != 0; i++ {
 		if w {
-			val := r.unibus.Memory[r.RKBA>>1]
+			val := r.unibus.read16(uint18(r.RKBA))
 			unit.rkdisk[pos] = byte(val & 0xFF)
 			unit.rkdisk[pos+1] = byte((val >> 8) & 0xFF)
 		} else {
-			r.unibus.Memory[r.RKBA>>1] = uint16(unit.rkdisk[pos]) | uint16(unit.rkdisk[pos+1])<<8
+			r.unibus.write16(uint18(r.RKBA), uint16(unit.rkdisk[pos])|uint16(unit.rkdisk[pos+1])<<8)
 		}
 		r.RKBA += 2
 		pos += 2
