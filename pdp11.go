@@ -34,46 +34,6 @@ type PDP1140 struct {
 	cpu
 }
 
-func (p *PDP1140) printstate() {
-	var cpu = p.cpu
-	var R = cpu.R
-	fmt.Printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", R[0], R[1], R[2], R[3], R[4], R[5], R[6], R[7])
-	if cpu.prevuser {
-		fmt.Print("u")
-	} else {
-		fmt.Print("k")
-	}
-	if cpu.curuser {
-		fmt.Print("U")
-	} else {
-		fmt.Print("K")
-	}
-	if cpu.PS&FLAGN != 0 {
-		fmt.Print("N")
-	} else {
-		fmt.Print(" ")
-	}
-	if cpu.PS&FLAGZ != 0 {
-		fmt.Print("Z")
-	} else {
-		fmt.Print(" ")
-	}
-	if cpu.PS&FLAGV != 0 {
-		fmt.Print("V")
-	} else {
-		fmt.Print(" ")
-	}
-	if cpu.PS&FLAGC != 0 {
-		fmt.Print("C")
-	} else {
-		fmt.Print(" ")
-	}
-	ia := cpu.mmu.decode(cpu.pc, false, cpu.curuser)
-	instr := p.unibus.read16(ia)
-	fmt.Printf("]  instr %06o: %06o   %s\n", cpu.pc, instr, p.disasm(ia))
-}
-
-// Step steps the CPU and all perpherals once.
 func (p *PDP1140) Step() {
 	defer func() {
 		t := recover()
@@ -89,30 +49,31 @@ func (p *PDP1140) Step() {
 	p.step()
 }
 
+type intr struct{ vec, pri int }
+
 func (p *PDP1140) step() {
 	p.cpu.step()
-	if len(interrupts) > 0 && interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
-		p.handleinterrupt(interrupts[0].vec)
-		interrupts = interrupts[1:]
+	if p.cpu.interrupts[0].vec > 0 && p.cpu.interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
+		p.handleinterrupt(p.cpu.interrupts[0].vec)
+		for i := 0; i < len(p.cpu.interrupts)-1; i++ {
+			p.cpu.interrupts[i] = p.cpu.interrupts[i+1]
+		}
+		p.cpu.interrupts[len(p.cpu.interrupts)-1] = intr{0, 0}
 	}
 	clkcounter++
 	if clkcounter >= 40000 {
 		clkcounter = 0
 		p.LKS |= (1 << 7)
 		if p.LKS&(1<<6) != 0 {
-			interrupt(INTCLOCK, 6)
+			p.cpu.interrupt(INTCLOCK, 6)
 		}
 	}
-	if pr {
-		p.printstate()
-	}
-
 	p.rk.Step()
 	p.cons.Step()
 }
 
 func (p *PDP1140) handleinterrupt(vec int) {
-	//fmt.Printf("IRQ: %06o\n", interrupts[0].vec)
+	//fmt.Printf("IRQ: %06o\n", vec)
 	defer func() {
 		t := recover()
 		switch t := t.(type) {
@@ -208,6 +169,7 @@ func New() *PDP1140 {
 	pdp.unibus.cpu = &pdp.cpu
 	pdp.cpu.mmu.cpu = &pdp.cpu
 	pdp.unibus.rk.unibus = &pdp.unibus
+	pdp.unibus.cons.unibus = &pdp.unibus
 	pdp.cpu.Reset()
 	return &pdp
 }

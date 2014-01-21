@@ -2,6 +2,8 @@ package pdp11
 
 import "fmt"
 
+const DEBUG_MMU = false
+
 type KT11 struct {
 	SR0, SR2 uint16
 	cpu      *cpu
@@ -17,13 +19,6 @@ func (p *page) write() bool  { return p.pdr&6 == 6 }
 func (p *page) ed() bool     { return p.pdr&8 == 8 }
 func (p *page) addr() uint16 { return p.par & 07777 }
 func (p *page) len() uint16  { return (p.pdr >> 8) & 0x7f }
-
-func createpage(par, pdr uint16) page {
-	return page{
-		par: par,
-		pdr: pdr,
-	}
-}
 
 func (m *KT11) read16(a uint18) uint16 {
 	i := ((a & 017) >> 1)
@@ -45,31 +40,37 @@ func (m *KT11) read16(a uint18) uint16 {
 func (m *KT11) write16(a uint18, v uint16) {
 	i := ((a & 017) >> 1)
 	if (a >= 0772300) && (a < 0772320) {
-		m.pages[i] = createpage(m.pages[i].par, v)
+		m.pages[i].pdr = v
 		return
 	}
 	if (a >= 0772340) && (a < 0772360) {
-		m.pages[i] = createpage(v, m.pages[i].pdr)
+		m.pages[i].par = v
 		return
 	}
 	if (a >= 0777600) && (a < 0777620) {
-		m.pages[i+8] = createpage(m.pages[i+8].par, v)
+		m.pages[i+8].pdr = v
 		return
 	}
 	if (a >= 0777640) && (a < 0777660) {
-		m.pages[i+8] = createpage(v, m.pages[i+8].pdr)
+		m.pages[i+8].par = v
 		return
 	}
 	panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
 }
 
-func (m *KT11) decode(a uint16, w, user bool) uint18 {
-	if !(m.SR0&1 == 1) {
-		a := uint18(a)
-		if a >= 0170000 {
-			a += 0600000
+func (m *KT11) mmuEnabled() bool  { return m.SR0&1 == 1 }
+func (m *KT11) mmuDisabled() bool { return m.SR0&1 == 0 }
+
+func (m *KT11) decode(a uint16, w, user bool) (addr uint18) {
+	if m.mmuDisabled() {
+		aa := uint18(a)
+		if aa >= 0170000 {
+			aa += 0600000
 		}
-		return a
+		if DEBUG_MMU {
+			fmt.Printf("decode: fast %06o -> %06o\n", a, aa)
+		}
+		return aa
 	}
 	offset := a >> 13
 	if user {
@@ -109,5 +110,9 @@ func (m *KT11) decode(a uint16, w, user bool) uint18 {
 	if w {
 		p.pdr |= 1 << 6
 	}
-	return ((uint18(block) + uint18(p.addr())) << 6) + disp
+	aa := ((uint18(block) + uint18(p.addr())) << 6) + disp
+	if DEBUG_MMU {
+		fmt.Printf("decode: slow %06o -> %06o\n", a, aa)
+	}
+	return aa
 }

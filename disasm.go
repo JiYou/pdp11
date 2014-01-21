@@ -67,20 +67,20 @@ var disasmtable = []struct {
 	{0177777, 0000004, "IOT", "", false},
 }
 
-func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
+func (c *cpu) disasmaddr(m uint16, a uint18) string {
 	if (m & 7) == 7 {
 		switch m {
 		case 027:
 			a += 2
-			return fmt.Sprintf("$%06o", p.unibus.read16(a))
+			return fmt.Sprintf("$%06o", c.unibus.read16(a))
 		case 037:
 			a += 2
-			return fmt.Sprintf("*%06o", p.unibus.read16(a))
+			return fmt.Sprintf("*%06o", c.unibus.read16(a))
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a + 2 + uint18(p.unibus.read16(a))&0xFFFF))
+			return fmt.Sprintf("*%06o", (a + 2 + uint18(c.unibus.read16(a))&0xFFFF))
 		case 077:
-			return fmt.Sprintf("**%06o", (a + 2 + uint18(p.unibus.read16(a))&0xFFFF))
+			return fmt.Sprintf("**%06o", (a + 2 + uint18(c.unibus.read16(a))&0xFFFF))
 		}
 	}
 	r := rs[m&7]
@@ -99,16 +99,16 @@ func (p *PDP1140) disasmaddr(m uint16, a uint18) string {
 		return "*-(" + r + ")"
 	case 060:
 		a += 2
-		return fmt.Sprintf("%06o (%s)", p.unibus.read16(a), r)
+		return fmt.Sprintf("%06o (%s)", c.unibus.read16(a), r)
 	case 070:
 		a += 2
-		return fmt.Sprintf("*%06o (%s)", p.unibus.read16(a), r)
+		return fmt.Sprintf("*%06o (%s)", c.unibus.read16(a), r)
 	}
 	panic(fmt.Sprintf("disasmaddr: unknown addressing mode, register %v, mode %o", r, m&070))
 }
 
-func (p *PDP1140) disasm(a uint18) string {
-	ins := p.unibus.read16(a)
+func (c *cpu) disasm(a uint18) string {
+	ins := c.unibus.read16(a)
 	msg := "???"
 	l := disasmtable[0]
 	for i := 0; i < len(disasmtable); i++ {
@@ -129,10 +129,10 @@ func (p *PDP1140) disasm(a uint18) string {
 	o := byte(ins & 0377)
 	switch l.flag {
 	case "SD":
-		msg += " " + p.disasmaddr(s, a) + ","
+		msg += " " + c.disasmaddr(s, a) + ","
 		fallthrough
 	case "D":
-		msg += " " + p.disasmaddr(d, a)
+		msg += " " + c.disasmaddr(d, a)
 	case "RO":
 		msg += " " + rs[(ins&0700)>>6] + ","
 		o &= 077
@@ -144,7 +144,7 @@ func (p *PDP1140) disasm(a uint18) string {
 			msg += fmt.Sprintf(" +%#o", (2 * o))
 		}
 	case "RD":
-		msg += " " + rs[(ins&0700)>>6] + ", " + p.disasmaddr(d, a)
+		msg += " " + rs[(ins&0700)>>6] + ", " + c.disasmaddr(d, a)
 	case "R":
 		msg += " " + rs[ins&7]
 	case "R3":
