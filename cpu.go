@@ -7,7 +7,6 @@ const pr = false // debug
 var (
 	clkcounter int
 	waiting    = false
-	interrupts []intr
 )
 
 // traps
@@ -61,6 +60,8 @@ type cpu struct {
 	Input  chan uint8
 	unibus *unibus
 	mmu    KT11
+
+	interrupts [8]intr
 }
 
 func (k *cpu) switchmode(newm bool) {
@@ -129,25 +130,6 @@ type trap struct {
 
 func (t trap) String() string {
 	return fmt.Sprintf("trap %06o occured: %s", t.num, t.msg)
-}
-
-func interrupt(vec, pri int) {
-	var i int
-	if vec&1 == 1 {
-		panic("Thou darst calling interrupt() with an odd vector number?")
-	}
-	for ; i < len(interrupts); i++ {
-		if interrupts[i].pri < pri {
-			break
-		}
-	}
-	for ; i < len(interrupts); i++ {
-		if interrupts[i].vec >= vec {
-			break
-		}
-	}
-	// interrupts.splice(i, 0, {vec: vec, pri: pri});
-	interrupts = append(interrupts[:i], append([]intr{{vec, pri}}, interrupts[i:]...)...)
 }
 
 type regaddr int
@@ -250,6 +232,9 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := INST(k.unibus.read16(ia))
+	if pr {
+		k.printstate()
+	}
 	switch instr & 0070000 {
 	case 0010000: // MOV
 		MOV(k, instr)
@@ -507,6 +492,35 @@ func (k *cpu) step() {
 	panic(trap{INTINVAL, "invalid instruction"})
 }
 
+func (c *cpu) interrupt(vec, pri int) {
+	if vec&1 == 1 {
+		panic("Thou darst calling interrupt() with an odd vector number?")
+	}
+	// fast path
+	if c.interrupts[0].vec == 0 {
+		c.interrupts[0] = intr{vec, pri}
+		return
+	}
+	var i int
+	for ; i < len(c.interrupts); i++ {
+		if c.interrupts[i].vec == 0 || c.interrupts[i].pri < pri {
+			break
+		}
+	}
+	for ; i < len(c.interrupts); i++ {
+		if c.interrupts[i].vec == 0 || c.interrupts[i].vec >= vec {
+			break
+		}
+	}
+	if i == len(c.interrupts) {
+		panic("interrupt table full")
+	}
+	for j := i + 1; j < len(c.interrupts); j++ {
+		c.interrupts[j] = c.interrupts[j-1]
+	}
+	c.interrupts[i] = intr{vec, pri}
+}
+
 func (c *cpu) SetPC(pc uint16) { c.R[7] = int(pc) }
 
 func (k *cpu) Reset() {
@@ -523,7 +537,8 @@ func (k *cpu) Reset() {
 	k.unibus.LKS = 1 << 7
 	k.unibus.Reset()
 	for i := 0; i < 16; i++ {
-		k.mmu.pages[i] = createpage(0, 0)
+		k.mmu.pages[i].par = 0
+		k.mmu.pages[i].pdr = 0
 	}
 	k.unibus.cons.clearterminal()
 	k.unibus.cons.Input = k.Input
@@ -1232,3 +1247,42 @@ func MTPI(c *cpu, i INST) {
 		c.PS |= FLAGN
 	}
 }
+func (c *cpu) printstate() {
+	var R = c.R
+	fmt.Printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\n[", R[0], R[1], R[2], R[3], R[4], R[5], R[6], R[7])
+	if c.prevuser {
+		fmt.Print("u")
+	} else {
+		fmt.Print("k")
+	}
+	if c.curuser {
+		fmt.Print("U")
+	} else {
+		fmt.Print("K")
+	}
+	if c.PS&FLAGN != 0 {
+		fmt.Print("N")
+	} else {
+		fmt.Print(" ")
+	}
+	if c.PS&FLAGZ != 0 {
+		fmt.Print("Z")
+	} else {
+		fmt.Print(" ")
+	}
+	if c.PS&FLAGV != 0 {
+		fmt.Print("V")
+	} else {
+		fmt.Print(" ")
+	}
+	if c.PS&FLAGC != 0 {
+		fmt.Print("C")
+	} else {
+		fmt.Print(" ")
+	}
+	ia := c.mmu.decode(c.pc, false, c.curuser)
+	instr := c.unibus.read16(ia)
+	fmt.Printf("]  instr %06o: %06o   %s\n", c.pc, instr, c.disasm(ia))
+}
+
+// Step steps the CPU and all perpherals once.

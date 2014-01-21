@@ -137,7 +137,7 @@ func (r *RK11) Step() {
 		r.running = false
 		r.ready()
 		if r.RKCS&(1<<6) != 0 {
-			interrupt(INTRK, 5)
+			r.unibus.cpu.interrupt(INTRK, 5)
 		}
 	}
 }
