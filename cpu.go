@@ -726,7 +726,7 @@ func MUL(c *cpu, i INST) {
 		val2 = -((0xFFFF ^ val2) + 1)
 	}
 	val := val1 * val2
-	c.R[s&7] = (val & 0xFFFF0000) >> 16
+	c.R[s&7] = val >> 16
 	c.R[(s&7)|1] = val & 0xFFFF
 	c.PS &= 0xFFF0
 	c.PS.testAndSetNeg(val & 0x80000000)
@@ -771,7 +771,7 @@ func ASH(c *cpu, i INST) {
 	val1 := c.R[s&7]
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := uint(c.memread(da, WORD) & 077)
+	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
 	var val int
 	if val2&040 != 0 {
@@ -806,7 +806,7 @@ func ASHC(c *cpu, i INST) {
 	val1 := c.R[s&7]<<16 | c.R[(s&7)|1]
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := uint(c.memread(da, WORD) & 077)
+	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
 	var val int
 	if val2&040 != 0 {
@@ -1288,5 +1288,3 @@ func (c *cpu) printstate() {
 	instr := c.unibus.read16(ia)
 	fmt.Printf("]  instr %06o: %06o   %s\n", c.pc, instr, c.disasm(ia))
 }
-
-// Step steps the CPU and all perpherals once.
