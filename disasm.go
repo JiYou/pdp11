@@ -78,9 +78,9 @@ func (c *cpu) disasmaddr(m uint16, a uint18) string {
 			return fmt.Sprintf("*%06o", c.unibus.read16(a))
 		case 067:
 			a += 2
-			return fmt.Sprintf("*%06o", (a + 2 + uint18(c.unibus.read16(a))&0xFFFF))
+			return fmt.Sprintf("*%06o", (a + 2 + uint18(c.unibus.read16(a)))&0xFFFF)
 		case 077:
-			return fmt.Sprintf("**%06o", (a + 2 + uint18(c.unibus.read16(a))&0xFFFF))
+			return fmt.Sprintf("**%06o", (a + 2 + uint18(c.unibus.read16(a)))&0xFFFF)
 		}
 	}
 	r := rs[m&7]

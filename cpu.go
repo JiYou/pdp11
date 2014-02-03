@@ -132,17 +132,17 @@ func (t trap) String() string {
 	return fmt.Sprintf("trap %06o occured: %s", t.num, t.msg)
 }
 
-type regaddr int
+type regaddr uint16
 
-func (r regaddr) register() bool { return r < 0 }
-func (r regaddr) address() bool  { return r >= 0 }
+func (r regaddr) register() bool { return r & 0177770 == 0170000 }
+func (r regaddr) address() bool  { return !r.register() }
 
 func (k *cpu) aget(v, l uint8) regaddr {
+	if (v & 070) == 000 {
+		return 0170000 | regaddr(v&7)
+	}
 	if (v&7) >= 6 || (v&010 != 0) {
 		l = 2
-	}
-	if (v & 070) == 000 {
-		return -regaddr(v + 1)
 	}
 	var addr uint16
 	switch v & 060 {
@@ -168,7 +168,8 @@ func (k *cpu) aget(v, l uint8) regaddr {
 
 func (k *cpu) memread(a regaddr, l uint8) int {
 	if a.register() {
-		r := uint8(-(a + 1))
+		//fmt.Printf("memread: regaddr %06o\n", a)
+		r := uint8(a & 7)
 		if l == WORD {
 			return k.R[r&7]
 		} else {
@@ -183,7 +184,8 @@ func (k *cpu) memread(a regaddr, l uint8) int {
 
 func (k *cpu) memwrite(a regaddr, l uint8, v int) {
 	if a.register() {
-		r := uint8(-(a + 1))
+		//fmt.Printf("memwrite: regaddr %06o\n", a)
+		r := uint8(a & 7)
 		if l == WORD {
 			k.R[r&7] = v
 		} else {
@@ -432,6 +434,7 @@ func (k *cpu) step() {
 		case instr == 3:
 			vec = 014
 		default:
+			println("IOT")
 			vec = 020
 		}
 		prev := uint16(k.PS)
@@ -723,7 +726,7 @@ func MUL(c *cpu, i INST) {
 		val2 = -((0xFFFF ^ val2) + 1)
 	}
 	val := val1 * val2
-	c.R[s&7] = (val & 0xFFFF0000) >> 16
+	c.R[s&7] = val >> 16
 	c.R[(s&7)|1] = val & 0xFFFF
 	c.PS &= 0xFFF0
 	c.PS.testAndSetNeg(val & 0x80000000)
@@ -768,7 +771,7 @@ func ASH(c *cpu, i INST) {
 	val1 := c.R[s&7]
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := uint(c.memread(da, WORD) & 077)
+	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
 	var val int
 	if val2&040 != 0 {
@@ -803,7 +806,7 @@ func ASHC(c *cpu, i INST) {
 	val1 := c.R[s&7]<<16 | c.R[(s&7)|1]
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := uint(c.memread(da, WORD) & 077)
+	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
 	var val int
 	if val2&040 != 0 {
@@ -1196,7 +1199,7 @@ func MFPI(c *cpu, i INST) {
 	d := i.D()
 	da := c.aget(d, WORD)
 	switch {
-	case da == -7:
+	case da == 0170006:
 		// val = (curuser == k.prevuser) ? R[6] : (prevuser ? k.USP : KSP);
 		if c.curuser == c.prevuser {
 			val = uint16(c.R[6])
@@ -1208,6 +1211,7 @@ func MFPI(c *cpu, i INST) {
 			}
 		}
 	case da.register():
+		fmt.Printf("MFPI: %06o\n", da)
 		panic("invalid MFPI instruction")
 	default:
 		val = c.unibus.read16(c.mmu.decode(uint16(da), false, c.prevuser))
@@ -1224,7 +1228,7 @@ func MTPI(c *cpu, i INST) {
 	da := c.aget(d, WORD)
 	val := uint16(c.pop())
 	switch {
-	case da == -7:
+	case da == 0170006:
 		if c.curuser == c.prevuser {
 			c.R[6] = int(val)
 		} else {
@@ -1284,5 +1288,3 @@ func (c *cpu) printstate() {
 	instr := c.unibus.read16(ia)
 	fmt.Printf("]  instr %06o: %06o   %s\n", c.pc, instr, c.disasm(ia))
 }
-
-// Step steps the CPU and all perpherals once.
