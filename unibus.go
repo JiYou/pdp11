@@ -2,8 +2,10 @@ package pdp11
 
 import "fmt"
 
+const MEMSIZE = 0760000
+
 type unibus struct {
-	Memory [124 * 1024]uint16
+	Memory [MEMSIZE >> 1]uint16
 	LKS    uint16
 	cpu    *cpu
 	rk     RK11 // drive 0
@@ -23,7 +25,7 @@ func (u *unibus) read16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
 		panic(trap{INTBUS, fmt.Sprintf("read from odd address %06o", a)})
-	case a < 0760000:
+	case a < MEMSIZE:
 		return u.Memory[a>>1]
 	case a == 0777546:
 		return u.LKS
@@ -57,7 +59,7 @@ func (u *unibus) read8(a uint18) uint16 {
 }
 
 func (u *unibus) write8(a uint18, v uint16) {
-	if a < 0760000 {
+	if a < MEMSIZE {
 		if a&1 == 1 {
 			u.Memory[a>>1] &= 0xFF
 			u.Memory[a>>1] |= v & 0xFF << 8
@@ -78,7 +80,7 @@ func (u *unibus) write16(a uint18, v uint16) {
 	if a%1 != 0 {
 		panic(trap{INTBUS, fmt.Sprintf("write to odd address %06o", a)})
 	}
-	if a < 0760000 {
+	if a < MEMSIZE {
 		u.Memory[a>>1] = v
 	} else if a == 0777776 {
 		switch v >> 14 {
