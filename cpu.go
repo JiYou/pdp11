@@ -134,7 +134,7 @@ func (t trap) String() string {
 
 type regaddr uint16
 
-func (r regaddr) register() bool { return r & 0177770 == 0170000 }
+func (r regaddr) register() bool { return r&0177770 == 0170000 }
 func (r regaddr) address() bool  { return !r.register() }
 
 func (k *cpu) aget(v, l uint8) regaddr {

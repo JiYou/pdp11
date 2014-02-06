@@ -163,6 +163,14 @@ func (p *PDP1140) run() {
 
 func (p *PDP1140) Attach(unit int, name string) { p.unibus.rk.Attach(unit, name) }
 
+// LoadMemory takes a map of addresses and their values and applies that map to
+// core memory.
+func (p *PDP1140) LoadMemory(code map[uint18]uint16) {
+	for a, v := range code {
+		p.unibus.write16(a, v)
+	}
+}
+
 func New() *PDP1140 {
 	var pdp PDP1140
 	pdp.cpu.unibus = &pdp.unibus

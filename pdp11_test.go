@@ -52,6 +52,7 @@ cc test.c
 }
 
 func TestPDP(t *testing.T) {
+	t.Skip("unsable")
 	for _, tt := range pdpTests {
 		pdp := New()
 		pdp.LoadBootrom(01000, BOOTRK05) // word addressed
