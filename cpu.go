@@ -134,7 +134,7 @@ func (t trap) String() string {
 
 type regaddr uint16
 
-func (r regaddr) register() bool { return r & 0177770 == 0170000 }
+func (r regaddr) register() bool { return r&0177770 == 0170000 }
 func (r regaddr) address() bool  { return !r.register() }
 
 func (k *cpu) aget(v, l uint8) regaddr {
@@ -729,8 +729,12 @@ func MUL(c *cpu, i INST) {
 	c.R[s&7] = val >> 16
 	c.R[(s&7)|1] = val & 0xFFFF
 	c.PS &= 0xFFF0
-	c.PS.testAndSetNeg(val & 0x80000000)
-	c.PS.testAndSetZero(val & 0xFFFFFFFF)
+	if int64(val)&int64(0x80000000) != 0 {
+		c.PS |= FLAGN
+	}
+	if int64(val)&int64(0xFFFFFFFF) != 0 {
+		c.PS |= FLAGZ
+	}
 	if val < (1<<15) || val >= ((1<<15)-1) {
 		c.PS |= FLAGC
 	}
@@ -803,15 +807,15 @@ func ASH(c *cpu, i INST) {
 
 func ASHC(c *cpu, i INST) {
 	s := i.S()
-	val1 := c.R[s&7]<<16 | c.R[(s&7)|1]
+	val1 := int64(c.R[s&7]<<16 | c.R[(s&7)|1])
 	d := i.D()
 	da := c.aget(d, WORD)
 	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
-	var val int
+	var val int64
 	if val2&040 != 0 {
 		val2 = (077 ^ val2) + 1
-		if val1&0x80000000 == 0x80000000 {
+		if val1&int64(0x80000000) != 0 {
 			val = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2)
 			val |= val1 >> val2
 		} else {
@@ -826,10 +830,12 @@ func ASHC(c *cpu, i INST) {
 			c.PS |= FLAGC
 		}
 	}
-	c.R[s&7] = (val >> 16) & 0xFFFF
-	c.R[(s&7)|1] = val & 0xFFFF
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & 0x80000000)
+	c.R[s&7] = int(val>>16) & 0xFFFF
+	c.R[(s&7)|1] = int(val) & 0xFFFF
+	c.PS.testAndSetZero(int(val))
+	if val&0x80000000 != 0 {
+		c.PS |= FLAGN
+	}
 	if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
 		c.PS |= FLAGV
 	}
