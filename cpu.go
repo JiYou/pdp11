@@ -684,11 +684,11 @@ func ADD(c *cpu, i INST) {
 func SUB(c *cpu, i INST) {
 	s := i.S()
 	sa := c.aget(s, WORD)
-	val1 := c.memread(sa, WORD)
+	val1 := uint16(c.memread(sa, WORD))
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := c.memread(da, WORD)
-	val := (val2 - val1) & 0xFFFF
+	val2 := uint16(c.memread(da, WORD))
+	val := val2 + (^(val1) + 1)
 	c.PS &= 0xFFF0
 	if val == 0 {
 		c.PS |= FLAGZ
@@ -702,7 +702,7 @@ func SUB(c *cpu, i INST) {
 	if val1 > val2 {
 		c.PS |= FLAGC
 	}
-	c.memwrite(da, WORD, val)
+	c.memwrite(da, WORD, int(val))
 }
 
 func JSR(c *cpu, i INST) {

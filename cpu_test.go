@@ -249,6 +249,13 @@ var instrTests = []suite{
 		steps:    1,
 		wantregs: regs{R1: 001112, R2: 0177777, R7: 001002, PS: 000011},
 	},
+	{
+		name:     "SUB R1, R2 (set V)",
+		regs:     regs{R1: 0177777, R2: 000001, R7: 001000, PS: 000017},
+		core:     core{001000: 0160102},
+		steps:    1,
+		wantregs: regs{R1: 0177777, R2: 000002, R7: 001002, PS: 000003},
+	},
 }
 
 func TestInstructions(t *testing.T) {
