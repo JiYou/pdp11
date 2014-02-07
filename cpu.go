@@ -774,12 +774,12 @@ func DIV(c *cpu, i INST) {
 
 func ASH(c *cpu, i INST) {
 	s := i.S()
-	val1 := c.R[s&7]
+	val1 := uint16(c.R[s&7])
 	d := i.D()
 	da := c.aget(d, WORD)
 	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
-	var val int
+	var val uint16
 	if val2&040 != 0 {
 		val2 = (077 ^ val2) + 1
 		if val1&0100000 == 0100000 {
@@ -788,21 +788,25 @@ func ASH(c *cpu, i INST) {
 		} else {
 			val = val1 >> val2
 		}
-		shift := 1 << (val2 - 1)
+		shift := uint16(1) << (val2 - 1)
 		if val1&shift == shift {
 			c.PS |= FLAGC
 		}
 	} else {
 		val = (val1 << val2) & 0xFFFF
-		shift := 1 << (16 - val2)
+		shift := uint16(1) << (16 - val2)
 		if val1&shift == shift {
 			c.PS |= FLAGC
 		}
 	}
-	c.R[s&7] = val
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & 0100000)
-	if xor(val&0100000 != 0, val1&0100000 != 0) {
+	c.R[s&7] = int(val)
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
+	if xor(val&0x8000 == 0x8000, val1&0x8000 == 0x8000) {
 		c.PS |= FLAGV
 	}
 }

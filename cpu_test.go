@@ -256,6 +256,34 @@ var instrTests = []suite{
 		steps:    1,
 		wantregs: regs{R1: 0177777, R2: 000002, R7: 001002, PS: 000003},
 	},
+	{
+		name:     "ASH R0, R3 (shift left)",
+		regs:     regs{R0: 000003, R3: 001234, R7: 001000, PS: 000000},
+		core:     core{001000: 0072300},
+		steps:    1,
+		wantregs: regs{R0: 000003, R3: 012340, R7: 001002, PS: 000000},
+	},
+	{
+		name:     "ASH R0, R3 (shift right)",
+		regs:     regs{R0: 000077, R3: 011234, R7: 001000, PS: 000000},
+		core:     core{001000: 0072300},
+		steps:    1,
+		wantregs: regs{R0: 000077, R3: 004516, R7: 001002, PS: 000000},
+	},
+	{
+		name:     "ASH R0, R3 (set Z and C)",
+		regs:     regs{R0: 000020, R3: 000001, R7: 001000, PS: 000000},
+		core:     core{001000: 0072300},
+		steps:    1,
+		wantregs: regs{R0: 000020, R3: 000000, R7: 001002, PS: 000005},
+	},
+	{
+		name:     "ASH R0, R3 (set N and V)",
+		regs:     regs{R0: 000017, R3: 000001, R7: 001000, PS: 000000},
+		core:     core{001000: 0072300},
+		steps:    1,
+		wantregs: regs{R0: 000017, R3: 0100000, R7: 001002, PS: 000012},
+	},
 }
 
 func TestInstructions(t *testing.T) {
