@@ -899,6 +899,7 @@ func INC(c *cpu, i INST) {
 	val := (c.memread(da, l) + 1) & max
 	c.PS &= 0xFFF1
 	if val&msb == msb {
+		// this might be wrong
 		c.PS |= FLAGN | FLAGV
 	}
 	c.PS.testAndSetZero(val)
