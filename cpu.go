@@ -576,22 +576,24 @@ func MOV(c *cpu, i INST) {
 
 func CMP(c *cpu, i INST) {
 	l := i.L()
-	msb := 0x80
-	max := 0xFF
+	msb := uint16(0x80)
 	if l == WORD {
 		msb = 0x8000
-		max = 0xFFFF
 	}
 	s := i.S()
 	sa := c.aget(s, l)
-	val1 := c.memread(sa, l)
+	val1 := uint16(c.memread(sa, l))
 	d := i.D()
 	da := c.aget(d, l)
-	val2 := c.memread(da, l)
-	val := (val1 - val2) & max
+	val2 := uint16(c.memread(da, l))
+	val := val1 + (^(val2) + 1)
 	c.PS &= 0xFFF0
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & msb)
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&msb == msb {
+		c.PS |= FLAGN
+	}
 	if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
 		c.PS |= FLAGV
 	}
@@ -688,8 +690,12 @@ func SUB(c *cpu, i INST) {
 	val2 := c.memread(da, WORD)
 	val := (val2 - val1) & 0xFFFF
 	c.PS &= 0xFFF0
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & 0x8000)
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
 	if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
 		c.PS |= FLAGV
 	}

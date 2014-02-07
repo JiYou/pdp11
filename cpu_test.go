@@ -172,6 +172,83 @@ var instrTests = []suite{
 		steps:    1,
 		wantregs: regs{R1: 0000140, R7: 001002, PS: 000003},
 	},
+	{
+		name:     "ROR R1",
+		regs:     regs{R1: 000000, R7: 001000, PS: 000001},
+		core:     core{001000: 006001},
+		steps:    1,
+		wantregs: regs{R1: 0100000, R7: 001002, PS: 000016},
+	},
+	{
+		name:     "SXT R1 (N not set)",
+		regs:     regs{R1: 001234, R7: 001000, PS: 000007},
+		core:     core{001000: 006701},
+		steps:    1,
+		wantregs: regs{R1: 000000, R7: 001002, PS: 000007},
+	},
+	{
+		name:     "SXT R1 (N set)",
+		regs:     regs{R1: 0012340, R7: 001000, PS: 000017},
+		core:     core{001000: 006701},
+		steps:    1,
+		wantregs: regs{R1: 0177777, R7: 001002, PS: 000017},
+	},
+	{
+		name:     "MOVB R1 R1",
+		regs:     regs{R1: 000777, R7: 001000, PS: 000000},
+		core:     core{001000: 0110101},
+		steps:    1,
+		wantregs: regs{R1: 0177777, R7: 001002, PS: 000010}, // MOVB reg, reg sign extends
+	},
+	{
+		name:     "MOVB R1 R2",
+		regs:     regs{R1: 000777, R7: 001000, PS: 000002},
+		core:     core{001000: 0110102},
+		steps:    1,
+		wantregs: regs{R1: 000777, R2: 0177777, R7: 001002, PS: 000010}, // MOVB reg, reg sign extends
+	},
+	{
+		name:     "MOV R0 R2",
+		regs:     regs{R7: 001000, PS: 000002},
+		core:     core{001000: 0110102},
+		steps:    1,
+		wantregs: regs{R7: 001002, PS: 00004},
+	},
+	{
+		name:     "CMPB R1 R2",
+		regs:     regs{R1: 000000, R2: 000001, R7: 001000, PS: 000000},
+		core:     core{001000: 0120102},
+		steps:    1,
+		wantregs: regs{R1: 000000, R2: 000001, R7: 001002, PS: 000011},
+	},
+	{
+		name:     "CMP R1 R2",
+		regs:     regs{R1: 000001, R2: 000001, R7: 001000, PS: 000000},
+		core:     core{001000: 0020102},
+		steps:    1,
+		wantregs: regs{R1: 000001, R2: 000001, R7: 001002, PS: 000004},
+	},
+	{
+		name:     "SUB R1, R2",
+		regs:     regs{R1: 011111, R2: 012345, R7: 001000, PS: 000017},
+		core:     core{001000: 0160102},
+		steps:    1,
+		wantregs: regs{R1: 011111, R2: 001234, R7: 001002, PS: 000000},
+	},
+	{
+		name:     "SUB R1, R2 (set Z)",
+		regs:     regs{R1: 011111, R2: 011111, R7: 001000, PS: 000017},
+		core:     core{001000: 0160102},
+		steps:    1,
+		wantregs: regs{R1: 011111, R2: 000000, R7: 001002, PS: 000004},
+	},
+	{
+		name:     "SUB R1, R2 (set N)",
+		regs:     regs{R1: 001112, R2: 001111, R7: 001000, PS: 000017},
+		core:     core{001000: 0160102},
+		steps:    1,
+		wantregs: regs{R1: 001112, R2: 0177777, R7: 001002, PS: 000011},
+	},
 }
 
 func TestInstructions(t *testing.T) {
