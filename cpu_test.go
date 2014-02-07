@@ -3,7 +3,7 @@ package pdp11
 import "testing"
 
 type regs struct {
-	R0, R1, R2, R3, R4, R5, R6, R7 int
+	R0, R1, R2, R3, R4, R5, R6, R7 uint16
 	PS                             PSW
 }
 
@@ -172,13 +172,20 @@ var instrTests = []suite{
 		steps:    1,
 		wantregs: regs{R1: 0000140, R7: 001002, PS: 000003},
 	},
-	{
-		name:     "ROR R1",
-		regs:     regs{R1: 000000, R7: 001000, PS: 000001},
-		core:     core{001000: 006001},
-		steps:    1,
-		wantregs: regs{R1: 0100000, R7: 001002, PS: 000016},
-	},
+        {
+                name:     "ROL R1",
+                regs:     regs{R1: 000000, R7: 001000, PS: 000001},
+                core:     core{001000: 006101},
+                steps:    1,
+                wantregs: regs{R1: 000001, R7: 001002, PS: 000000},
+        },
+        {
+                name:     "ROL R1 (set C and N)",
+                regs:     regs{R1: 0100000, R7: 001000, PS: 000000},
+                core:     core{001000: 006101},
+                steps:    1,
+                wantregs: regs{R1: 000000, R7: 001002, PS: 000004},
+        },
 	{
 		name:     "SXT R1 (N not set)",
 		regs:     regs{R1: 001234, R7: 001000, PS: 000007},
