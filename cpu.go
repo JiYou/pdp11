@@ -166,9 +166,16 @@ func (k *cpu) aget(v, l uint8) regaddr {
 	return regaddr(addr)
 }
 
+func (k *cpu) memread16(a regaddr) uint16 {
+	if a.register() {
+		r := uint8(a & 7)
+		return uint16(k.R[r&7])
+	}
+	return k.read16(uint16(a))
+}
+
 func (k *cpu) memread(a regaddr, l uint8) int {
 	if a.register() {
-		//fmt.Printf("memread: regaddr %06o\n", a)
 		r := uint8(a & 7)
 		if l == WORD {
 			return k.R[r&7]
@@ -670,8 +677,12 @@ func ADD(c *cpu, i INST) {
 	val2 := c.memread(da, WORD)
 	val := (val1 + val2) & 0xFFFF
 	c.PS &= 0xFFF0
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & 0x8000)
+	if val == 0 {
+		c.PS |= FLAGZ
+	}
+	if val&0x8000 == 0x8000 {
+		c.PS |= FLAGN
+	}
 	if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
 		c.PS |= FLAGV
 	}
