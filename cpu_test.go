@@ -3,7 +3,7 @@ package pdp11
 import "testing"
 
 type regs struct {
-	R0, R1, R2, R3, R4, R5, R6, R7 uint16
+	R0, R1, R2, R3, R4, R5, R6, R7 int
 	PS                             PSW
 }
 
@@ -172,20 +172,20 @@ var instrTests = []suite{
 		steps:    1,
 		wantregs: regs{R1: 0000140, R7: 001002, PS: 000003},
 	},
-        {
-                name:     "ROL R1",
-                regs:     regs{R1: 000000, R7: 001000, PS: 000001},
-                core:     core{001000: 006101},
-                steps:    1,
-                wantregs: regs{R1: 000001, R7: 001002, PS: 000000},
-        },
-        {
-                name:     "ROL R1 (set C and N)",
-                regs:     regs{R1: 0100000, R7: 001000, PS: 000000},
-                core:     core{001000: 006101},
-                steps:    1,
-                wantregs: regs{R1: 000000, R7: 001002, PS: 000004},
-        },
+	{
+		name:     "ROL R1",
+		regs:     regs{R1: 000000, R7: 001000, PS: 000001},
+		core:     core{001000: 006101},
+		steps:    1,
+		wantregs: regs{R1: 000001, R7: 001002, PS: 000000},
+	},
+	{
+		name:     "ROL R1 (set C and N)",
+		regs:     regs{R1: 0100000, R7: 001000, PS: 000000},
+		core:     core{001000: 006101},
+		steps:    1,
+		wantregs: regs{R1: 000000, R7: 001002, PS: 000007},
+	},
 	{
 		name:     "SXT R1 (N not set)",
 		regs:     regs{R1: 001234, R7: 001000, PS: 000007},
@@ -290,6 +290,55 @@ var instrTests = []suite{
 		core:     core{001000: 0072300},
 		steps:    1,
 		wantregs: regs{R0: 000017, R3: 0100000, R7: 001002, PS: 000012},
+	},
+	{
+		name:     "ADC R0",
+		regs:     regs{R0: 000001, R7: 001000},
+		core:     core{001000: 005500},
+		steps:    1,
+		wantregs: regs{R0: 000001, R7: 001002},
+	},
+	{
+		name:     "ADCB R0",
+		regs:     regs{R0: 000001, R7: 001000, PS: 000001},
+		core:     core{001000: 0105500},
+		steps:    1,
+		wantregs: regs{R0: 000002, R7: 001002},
+	},
+	{
+		name:     "ADCB R0",
+		regs:     regs{R0: 000377, R7: 001000, PS: 000001},
+		core:     core{001000: 0105500},
+		steps:    1,
+		wantregs: regs{R0: 000000, R7: 001002, PS: 000004},
+	},
+	{
+		name:     "ADC R0",
+		regs:     regs{R0: 077777, R7: 001000, PS: 000001},
+		core:     core{001000: 005500},
+		steps:    1,
+		wantregs: regs{R0: 0100000, R7: 001002, PS: 000012},
+	},
+	{
+		name:     "ADC R0 (no carry, Z set)",
+		regs:     regs{R0: 000000, R7: 001000, PS: 000000},
+		core:     core{001000: 005500},
+		steps:    1,
+		wantregs: regs{R0: 000000, R7: 001002, PS: 000004},
+	},
+	{
+		name:     "ADCB R0 (no carry, N set)",
+		regs:     regs{R0: 000377, R7: 001000, PS: 000000},
+		core:     core{001000: 0105500},
+		steps:    1,
+		wantregs: regs{R0: 000377, R7: 001002, PS: 000010},
+	},
+	{
+		name:     "ADD R1, R2; ADC R3; ADD R4, R3",
+		regs:     regs{R1: 0177777, R2: 0177777, R3: 0177777, R4: 0177777, R7: 001000},
+		core:     core{001000: 060102, 001002: 005503, 001004: 060403},
+		steps:    3,
+		wantregs: regs{R1: 0177777, R2: 0177776, R3: 0177777, R4: 0177777, PS: 000011, R7: 001006},
 	},
 }
 
