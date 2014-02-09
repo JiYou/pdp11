@@ -189,9 +189,17 @@ func (k *cpu) memread(a regaddr, l uint8) int {
 	return int(k.read8(uint16(a)))
 }
 
+func (k *cpu) memwrite16(a regaddr, v uint16) {
+	if a.register() {
+		r := uint8(a & 7)
+		k.R[r&7] = int(v)
+		return
+	}
+	k.write16(uint16(a), v)
+}
+
 func (k *cpu) memwrite(a regaddr, l uint8, v int) {
 	if a.register() {
-		//fmt.Printf("memwrite: regaddr %06o\n", a)
 		r := uint8(a & 7)
 		if l == WORD {
 			k.R[r&7] = v
@@ -671,11 +679,11 @@ func BIS(c *cpu, i INST) {
 func ADD(c *cpu, i INST) {
 	s := i.S()
 	sa := c.aget(s, WORD)
-	val1 := c.memread(sa, WORD)
+	val1 := c.memread16(sa)
 	d := i.D()
 	da := c.aget(d, WORD)
-	val2 := c.memread(da, WORD)
-	val := (val1 + val2) & 0xFFFF
+	val2 := c.memread16(da)
+	val := val1 + val2
 	c.PS &= 0xFFF0
 	if val == 0 {
 		c.PS |= FLAGZ
@@ -689,7 +697,7 @@ func ADD(c *cpu, i INST) {
 	if int(val1)+int(val2) >= 0xFFFF {
 		c.PS |= FLAGC
 	}
-	c.memwrite(da, WORD, val)
+	c.memwrite16(da, val)
 }
 
 func SUB(c *cpu, i INST) {
