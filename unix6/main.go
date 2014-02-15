@@ -20,6 +20,7 @@ func stdin(c chan uint8) {
 			c <- b[0]
 		}
 		if err != nil {
+			log.Println(pdp11.Runtime)
 			log.Fatal(err)
 		}
 	}

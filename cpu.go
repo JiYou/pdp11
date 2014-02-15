@@ -1,8 +1,14 @@
 package pdp11
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
-const pr = false // debug
+const (
+	printState = false
+	timeInstr  = false
+)
 
 var (
 	clkcounter int
@@ -234,6 +240,9 @@ const (
 	BYTE = 1
 )
 
+// total CPU runtime, if timeInstr is true.
+var Runtime time.Duration
+
 func (k *cpu) step() {
 	if waiting {
 		select {
@@ -249,8 +258,11 @@ func (k *cpu) step() {
 	ia := k.mmu.decode(k.pc, false, k.curuser)
 	k.R[7] += 2
 	instr := INST(k.unibus.read16(ia))
-	if pr {
+	if printState {
 		k.printstate()
+	}
+	if timeInstr {
+		Runtime += k.timing(ia)
 	}
 	switch instr & 0070000 {
 	case 0010000: // MOV

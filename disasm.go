@@ -73,6 +73,7 @@ var disasmtable = []struct {
 	{0177400, 0104400, "TRAP", flagN, false},
 	{0177777, 0000003, "BPT", 0, false},
 	{0177777, 0000004, "IOT", 0, false},
+	{0170000, 0170000, "FP", 0, false},
 }
 
 func (c *cpu) disasmaddr(m uint16, a uint18) string {
@@ -117,18 +118,18 @@ func (c *cpu) disasmaddr(m uint16, a uint18) string {
 
 func (c *cpu) disasm(a uint18) string {
 	ins := c.unibus.read16(a)
-	msg := "???"
 	l := disasmtable[0]
 	for i := 0; i < len(disasmtable); i++ {
 		l = disasmtable[i]
 		if (ins & l.inst) == l.arg {
-			msg = l.msg
-			break
+			goto found
 		}
 	}
-	if msg == "???" {
-		return msg
-	}
+	panic(fmt.Sprintf("disasm: cannot disassemble instruction %06o at %06o", ins, a))
+	return "???"
+
+found:
+	msg := l.msg
 	if l.b && (ins&0100000 == 0100000) {
 		msg += "B"
 	}
@@ -151,7 +152,7 @@ func (c *cpu) disasm(a uint18) string {
 		} else {
 			msg += fmt.Sprintf(" +%#o", (2 * o))
 		}
-	case flagR|flagD:
+	case flagR | flagD:
 		msg += " " + rs[(ins&0700)>>6] + ", " + c.disasmaddr(d, a)
 	case flagR:
 		msg += " " + rs[ins&7]
