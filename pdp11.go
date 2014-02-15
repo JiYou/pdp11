@@ -58,6 +58,7 @@ func (p *PDP1140) step() {
 			p.cpu.interrupts[i] = p.cpu.interrupts[i+1]
 		}
 		p.cpu.interrupts[len(p.cpu.interrupts)-1] = intr{0, 0}
+		return
 	}
 	p.cpu.step()
 	clkcounter++
@@ -130,12 +131,6 @@ func (p *PDP1140) trapat(vec int, msg string) {
 	p.cpu.switchmode(false)
 	p.cpu.push(prev)
 	p.cpu.push(uint16(p.cpu.R[7]))
-}
-
-func (p *PDP1140) LoadBootrom(addr uint18, rom []uint16) {
-	for i := 0; i < len(rom); i++ {
-		p.unibus.Memory[01000+i] = rom[i]
-	}
 }
 
 func (p *PDP1140) Run() {

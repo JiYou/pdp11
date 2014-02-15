@@ -55,8 +55,8 @@ func TestPDP(t *testing.T) {
 	t.Skip("unsable")
 	for _, tt := range pdpTests {
 		pdp := New()
-		pdp.LoadBootrom(01000, BOOTRK05) // word addressed
-		pdp.SetPC(02002)                 // byte addressed
+		pdp.LoadMemory(BOOTRK05)
+		pdp.SetPC(002002)
 		pdp.Attach(0, "rk0")
 		go func() {
 			c := pdp.cpu.Input
