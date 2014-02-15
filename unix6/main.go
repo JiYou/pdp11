@@ -1,9 +1,12 @@
 package main
 
 import (
+	"go/build"
 	"log"
 	"os"
-	"pdp11"
+	"path/filepath"
+
+	"github.com/davecheney/pdp11"
 )
 
 func stdin(c chan uint8) {
@@ -29,7 +32,7 @@ func main() {
 	const LOADADDR = 01000
 	pdp.LoadBootrom(LOADADDR, pdp11.BOOTRK05)
 	pdp.SetPC(LOADADDR*2 + 2)
-	pdp.Attach(0, "rk0")
+	pdp.Attach(0, filepath.Join(build.Default.GOPATH, "src/github.com/davecheney/pdp11/rk0"))
 	go stdin(pdp.Input)
 	pdp.Run()
 }

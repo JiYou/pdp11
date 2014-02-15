@@ -52,7 +52,6 @@ func (p *PDP1140) Step() {
 type intr struct{ vec, pri int }
 
 func (p *PDP1140) step() {
-	p.cpu.step()
 	if p.cpu.interrupts[0].vec > 0 && p.cpu.interrupts[0].pri >= ((int(p.cpu.PS)>>5)&7) {
 		p.handleinterrupt(p.cpu.interrupts[0].vec)
 		for i := 0; i < len(p.cpu.interrupts)-1; i++ {
@@ -60,6 +59,7 @@ func (p *PDP1140) step() {
 		}
 		p.cpu.interrupts[len(p.cpu.interrupts)-1] = intr{0, 0}
 	}
+	p.cpu.step()
 	clkcounter++
 	if clkcounter >= 40000 {
 		clkcounter = 0
