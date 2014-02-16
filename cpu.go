@@ -762,12 +762,16 @@ func MUL(c *cpu, i INST) {
 	if val2&0x8000 == 0x8000 {
 		val2 = -((0xFFFF ^ val2) + 1)
 	}
-	val := val1 * val2
-	c.R[s&7] = val >> 16
-	c.R[(s&7)|1] = val & 0xFFFF
+	val := int64(val1) * int64(val2)
+	c.R[s&7] = int(val >> 16)
+	c.R[(s&7)|1] = int(val) & 0xFFFF
 	c.PS &= 0xFFF0
-	c.PS.testAndSetNeg(val & 0x80000000)
-	c.PS.testAndSetZero(val & 0xFFFFFFFF)
+	if val & 0x80000000 == 0x80000000 {
+		c.PS |= flagZ
+	}
+	if val & 0xffffffff == 0 {
+		c.PS |= flagN
+	}
 	if val < (1<<15) || val >= ((1<<15)-1) {
 		c.PS |= flagC
 	}
