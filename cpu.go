@@ -766,10 +766,10 @@ func MUL(c *cpu, i INST) {
 	c.R[s&7] = int(val >> 16)
 	c.R[(s&7)|1] = int(val) & 0xFFFF
 	c.PS &= 0xFFF0
-	if val & 0x80000000 == 0x80000000 {
+	if val&0x80000000 == 0x80000000 {
 		c.PS |= flagZ
 	}
-	if val & 0xffffffff == 0 {
+	if val&0xffffffff == 0 {
 		c.PS |= flagN
 	}
 	if val < (1<<15) || val >= ((1<<15)-1) {
@@ -848,12 +848,12 @@ func ASH(c *cpu, i INST) {
 
 func ASHC(c *cpu, i INST) {
 	s := i.S()
-	val1 := c.R[s&7]<<16 | c.R[(s&7)|1]
+	val1 := int64(c.R[s&7]<<16 | c.R[(s&7)|1])
 	d := i.D()
 	da := c.aget(d, WORD)
 	val2 := uint8(c.memread(da, WORD) & 077)
 	c.PS &= 0xFFF0
-	var val int
+	var val int64
 	if val2&040 != 0 {
 		val2 = (077 ^ val2) + 1
 		if val1&0x80000000 == 0x80000000 {
@@ -871,10 +871,14 @@ func ASHC(c *cpu, i INST) {
 			c.PS |= flagC
 		}
 	}
-	c.R[s&7] = (val >> 16) & 0xFFFF
-	c.R[(s&7)|1] = val & 0xFFFF
-	c.PS.testAndSetZero(val)
-	c.PS.testAndSetNeg(val & 0x80000000)
+	c.R[s&7] = int(val>>16) & 0xFFFF
+	c.R[(s&7)|1] = int(val) & 0xFFFF
+	if val == 0 {
+		c.PS |= flagZ
+	}
+	if val&0x80000000 != 0 {
+		c.PS |= flagN
+	}
 	if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
 		c.PS |= flagV
 	}
