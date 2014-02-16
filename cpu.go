@@ -31,28 +31,28 @@ const (
 func xor(a, b bool) bool { return a != b }
 
 const (
-	FLAGN = 8
-	FLAGZ = 4
-	FLAGV = 2
-	FLAGC = 1
+	flagN = 8
+	flagZ = 4
+	flagV = 2
+	flagC = 1
 )
 
 type PSW uint16
 
-func (p PSW) N() bool { return p&FLAGN == FLAGN }
-func (p PSW) Z() bool { return p&FLAGZ == FLAGZ }
-func (p PSW) V() bool { return p&FLAGV == FLAGV }
-func (p PSW) C() bool { return p&FLAGC == FLAGC }
+func (p PSW) N() bool { return p&flagN == flagN }
+func (p PSW) Z() bool { return p&flagZ == flagZ }
+func (p PSW) V() bool { return p&flagV == flagV }
+func (p PSW) C() bool { return p&flagC == flagC }
 
 func (p *PSW) testAndSetZero(v int) {
 	if v == 0 {
-		*p |= FLAGZ
+		*p |= flagZ
 	}
 }
 
 func (p *PSW) testAndSetNeg(v int) {
 	if v != 0 {
-		*p |= FLAGN
+		*p |= flagN
 	}
 }
 
@@ -381,12 +381,12 @@ func (k *cpu) step() {
 		k.branch(o)
 		return
 	case 0001000:
-		if !(k.PS&FLAGZ == FLAGZ) {
+		if !(k.PS&flagZ == flagZ) {
 			k.branch(o)
 		}
 		return
 	case 0001400:
-		if k.PS&FLAGZ == FLAGZ {
+		if k.PS&flagZ == flagZ {
 			k.branch(o)
 		}
 		return
@@ -616,16 +616,16 @@ func CMP(c *cpu, i INST) {
 	val := val1 + (^(val2) + 1)
 	c.PS &= 0xFFF0
 	if val == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if val&msb == msb {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if (val1^val2)&msb == msb && !((val2^val)&msb == msb) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	if val1 < val2 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 }
 
@@ -698,16 +698,16 @@ func ADD(c *cpu, i INST) {
 	val := val1 + val2
 	c.PS &= 0xFFF0
 	if val == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if !((val1^val2)&0x8000 == 0x8000) && ((val2^val)&0x8000 == 0x8000) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	if int(val1)+int(val2) >= 0xFFFF {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	c.memwrite16(da, val)
 }
@@ -722,16 +722,16 @@ func SUB(c *cpu, i INST) {
 	val := val2 + (^(val1) + 1)
 	c.PS &= 0xFFF0
 	if val == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if ((val1^val2)&0x8000 == 0x8000) && !((val2^val)&0x8000 == 0x8000) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	if val1 > val2 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	c.memwrite(da, WORD, int(val))
 }
@@ -769,7 +769,7 @@ func MUL(c *cpu, i INST) {
 	c.PS.testAndSetNeg(val & 0x80000000)
 	c.PS.testAndSetZero(val & 0xFFFFFFFF)
 	if val < (1<<15) || val >= ((1<<15)-1) {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 }
 
@@ -783,23 +783,23 @@ func DIV(c *cpu, i INST) {
 	val2 := int(c.memread(da, WORD))
 	c.PS &= 0xFFF0
 	if val2 == 0 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 		return
 	}
 	if val1/val2 >= 0x10000 {
-		c.PS |= FLAGV
+		c.PS |= flagV
 		return
 	}
 	c.R[s&7] = (val1 / val2) & 0xFFFF
 	c.R[(s&7)|1] = (val1 % val2) & 0xFFFF
 	if c.R[s&7] == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if c.R[s&7]&0100000 == 0100000 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if val1 == 0 {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 }
 
@@ -821,24 +821,24 @@ func ASH(c *cpu, i INST) {
 		}
 		shift := uint16(1) << (val2 - 1)
 		if val1&shift == shift {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 	} else {
 		val = (val1 << val2) & 0xFFFF
 		shift := uint16(1) << (16 - val2)
 		if val1&shift == shift {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 	}
 	c.R[s&7] = int(val)
 	if val == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if xor(val&0x8000 == 0x8000, val1&0x8000 == 0x8000) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 }
 
@@ -859,12 +859,12 @@ func ASHC(c *cpu, i INST) {
 			val = val1 >> val2
 		}
 		if val1&(1<<(val2-1)) != 0 {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 	} else {
 		val = (val1 << val2) & 0xFFFFFFFF
 		if val1&(1<<(32-val2)) != 0 {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 	}
 	c.R[s&7] = (val >> 16) & 0xFFFF
@@ -872,7 +872,7 @@ func ASHC(c *cpu, i INST) {
 	c.PS.testAndSetZero(val)
 	c.PS.testAndSetNeg(val & 0x80000000)
 	if xor(val&0x80000000 != 0, val1&0x80000000 != 0) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 }
 
@@ -903,7 +903,7 @@ func SOB(c *cpu, i INST) {
 func CLR(c *cpu, i INST) {
 	l := i.L()
 	c.PS &= 0xFFF0
-	c.PS |= FLAGZ
+	c.PS |= flagZ
 	d := i.D()
 	da := c.aget(d, l)
 	c.memwrite(da, l, 0)
@@ -921,7 +921,7 @@ func COM(c *cpu, i INST) {
 	da := c.aget(d, l)
 	val := c.memread(da, l) ^ max
 	c.PS &= 0xFFF0
-	c.PS |= FLAGC
+	c.PS |= flagC
 	c.PS.testAndSetNeg(val & msb)
 	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
@@ -941,7 +941,7 @@ func INC(c *cpu, i INST) {
 	c.PS &= 0xFFF1
 	if val&msb == msb {
 		// this might be wrong
-		c.PS |= FLAGN | FLAGV
+		c.PS |= flagN | flagV
 	}
 	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
@@ -963,7 +963,7 @@ func DEC(c *cpu, i INST) {
 	c.PS &= 0xFFF1
 	c.PS.testAndSetNeg(val & msb)
 	if val == maxp {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	c.PS.testAndSetZero(val)
 	c.memwrite(da, l, val)
@@ -983,12 +983,12 @@ func NEG(c *cpu, i INST) {
 	c.PS &= 0xFFF0
 	c.PS.testAndSetNeg(val & msb)
 	if val == 0 {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	} else {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	if val == 0x8000 {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	c.memwrite(da, l, val)
 }
@@ -1008,25 +1008,25 @@ func ADC(c *cpu, i INST) {
 	if c.PS.C() {
 		c.PS &= 0xFFF0
 		if (val+1)&msb == msb {
-			c.PS |= FLAGN
+			c.PS |= flagN
 		}
 		if val == max {
-			c.PS |= FLAGZ
+			c.PS |= flagZ
 		}
 		if val == 0077777 {
-			c.PS |= FLAGV
+			c.PS |= flagV
 		}
 		if val == 0177777 {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 		c.memwrite(da, l, (val+1)&max)
 	} else {
 		c.PS &= 0xFFF0
 		if val&msb == msb {
-			c.PS |= FLAGN
+			c.PS |= flagN
 		}
 		if val == 0 {
-			c.PS |= FLAGZ
+			c.PS |= flagZ
 		}
 	}
 }
@@ -1045,30 +1045,30 @@ func SBC(c *cpu, i INST) {
 	if c.PS.C() {
 		c.PS &= 0xFFF0
 		if (val-1)&msb == msb {
-			c.PS |= FLAGN
+			c.PS |= flagN
 		}
 		if val == 1 {
-			c.PS |= FLAGZ
+			c.PS |= flagZ
 		}
 		if val != 0 {
-			c.PS |= FLAGC
+			c.PS |= flagC
 		}
 		if val == 0100000 {
-			c.PS |= FLAGV
+			c.PS |= flagV
 		}
 		c.memwrite(da, l, (val-1)&max)
 	} else {
 		c.PS &= 0xFFF0
 		if val&msb == msb {
-			c.PS |= FLAGN
+			c.PS |= flagN
 		}
 		if val == 0 {
-			c.PS |= FLAGZ
+			c.PS |= flagZ
 		}
 		if val == 0100000 {
-			c.PS |= FLAGV
+			c.PS |= flagV
 		}
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 }
 
@@ -1083,11 +1083,11 @@ func ASR(c *cpu, i INST) {
 	val := c.memread(da, l)
 	c.PS &= 0xFFF0
 	if val&1 == 1 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	c.PS.testAndSetNeg(val & msb)
 	if xor(val&msb != 0, val&1 == 1) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	val = (val & msb) | (val >> 1)
 	c.PS.testAndSetZero(val)
@@ -1107,13 +1107,13 @@ func ASL(c *cpu, i INST) {
 	val := c.memread(da, l)
 	c.PS &= 0xFFF0
 	if val&msb == msb {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	if val&(msb>>1) != 0 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if (val^(val<<1))&msb != 0 {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	val = (val << 1) & max
 	c.PS.testAndSetZero(val)
@@ -1128,10 +1128,10 @@ func SXT(c *cpu, i INST) {
 	}
 	d := i.D()
 	da := c.aget(d, l)
-	if c.PS&FLAGN == FLAGN {
+	if c.PS&flagN == flagN {
 		c.memwrite(da, l, max)
 	} else {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 		c.memwrite(da, l, 0)
 	}
 }
@@ -1165,16 +1165,16 @@ func ROR(c *cpu, i INST) {
 	}
 	c.PS &= 0xFFF0
 	if val&1 == 1 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	if val&(max+1) != 0 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 	if !(val&max != 0) {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if xor(val&1 == 1, val&(max+1) != 0) {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	val >>= 1
 	c.memwrite(da, l, val)
@@ -1196,14 +1196,14 @@ func ROL(c *cpu, i INST) {
 	}
 	c.PS &= 0xFFF0
 	if val&(max+1) != 0 {
-		c.PS |= FLAGC
+		c.PS |= flagC
 	}
 	c.PS.testAndSetNeg(val & msb)
 	if !(val&max != 0) {
-		c.PS |= FLAGZ
+		c.PS |= flagZ
 	}
 	if (val^(val>>1))&msb != 0 {
-		c.PS |= FLAGV
+		c.PS |= flagV
 	}
 	val &= max
 	c.memwrite(da, l, val)
@@ -1260,7 +1260,7 @@ func MFPI(c *cpu, i INST) {
 	}
 	c.push(val)
 	c.PS &= 0xFFF0
-	c.PS |= FLAGC
+	c.PS |= flagC
 	c.PS.testAndSetZero(int(val))
 	c.PS.testAndSetNeg(int(val & 0x8000))
 }
@@ -1287,10 +1287,10 @@ func MTPI(c *cpu, i INST) {
 		c.unibus.write16(sa, val)
 	}
 	c.PS &= 0xFFF0
-	c.PS |= FLAGC
+	c.PS |= flagC
 	c.PS.testAndSetZero(int(val))
 	if val&0x8000 == 0x8000 {
-		c.PS |= FLAGN
+		c.PS |= flagN
 	}
 }
 func (c *cpu) printstate() {
@@ -1306,22 +1306,22 @@ func (c *cpu) printstate() {
 	} else {
 		fmt.Print("K")
 	}
-	if c.PS&FLAGN != 0 {
+	if c.PS&flagN != 0 {
 		fmt.Print("N")
 	} else {
 		fmt.Print(" ")
 	}
-	if c.PS&FLAGZ != 0 {
+	if c.PS&flagZ != 0 {
 		fmt.Print("Z")
 	} else {
 		fmt.Print(" ")
 	}
-	if c.PS&FLAGV != 0 {
+	if c.PS&flagV != 0 {
 		fmt.Print("V")
 	} else {
 		fmt.Print(" ")
 	}
-	if c.PS&FLAGC != 0 {
+	if c.PS&flagC != 0 {
 		fmt.Print("C")
 	} else {
 		fmt.Print(" ")

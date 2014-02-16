@@ -9,7 +9,7 @@ const (
 	flagS = 1 << 1
 	flagO = 1 << 2
 	flagR = 1 << 3
-	flagN = 1 << 4
+	flagNone = 1 << 4
 )
 
 var disasmtable = []struct {
@@ -69,8 +69,8 @@ var disasmtable = []struct {
 	{0177777, 0000001, "WAIT", 0, false},
 	{0177777, 0000002, "RTI", 0, false},
 	{0177777, 0000006, "RTT", 0, false},
-	{0177400, 0104000, "EMT", flagN, false},
-	{0177400, 0104400, "TRAP", flagN, false},
+	{0177400, 0104000, "EMT", flagNone, false},
+	{0177400, 0104400, "TRAP", flagNone, false},
 	{0177777, 0000003, "BPT", 0, false},
 	{0177777, 0000004, "IOT", 0, false},
 	{0170000, 0170000, "FP", 0, false},

@@ -376,6 +376,17 @@ func TestInstructions(t *testing.T) {
 	}
 }
 
+func BenchmarkADD(b *testing.B) {
+	cpu := New()
+	cpu.LoadMemory(core{000000: 060102})
+	cpu.R[1] = 1;
+	cpu.R[2] = 0;
+	for i := 0; i < b.N ; i++ {
+		cpu.R[7] = 000000;
+		cpu.step();
+	}
+}
+
 func instrTest(t *testing.T, tt suite) {
 	t.Log(tt.name)
 	cpu := New()
