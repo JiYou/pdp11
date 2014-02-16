@@ -4,7 +4,7 @@ import "testing"
 
 type regs struct {
 	R0, R1, R2, R3, R4, R5, R6, R7 int
-	PS                             PSW
+	PS                             psw
 }
 
 type core map[uint18]uint16
@@ -379,11 +379,11 @@ func TestInstructions(t *testing.T) {
 func BenchmarkADD(b *testing.B) {
 	cpu := New()
 	cpu.LoadMemory(core{000000: 060102})
-	cpu.R[1] = 1;
-	cpu.R[2] = 0;
-	for i := 0; i < b.N ; i++ {
-		cpu.R[7] = 000000;
-		cpu.step();
+	cpu.R[1] = 1
+	cpu.R[2] = 0
+	for i := 0; i < b.N; i++ {
+		cpu.R[7] = 000000
+		cpu.step()
 	}
 }
 

@@ -103,7 +103,7 @@ func (u *unibus) write16(a uint18, v uint16) {
 		default:
 			panic("invalid mode")
 		}
-		u.cpu.PS = PSW(v)
+		u.cpu.PS = psw(v)
 	} else if a == 0777546 {
 		u.LKS = v
 	} else if a == 0777572 {

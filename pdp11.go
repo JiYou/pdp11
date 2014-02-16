@@ -86,7 +86,7 @@ func (p *PDP1140) handleinterrupt(vec int) {
 			panic(t)
 		}
 		p.cpu.R[7] = int(p.unibus.read16(uint18(vec)))
-		p.cpu.PS = PSW(p.unibus.read16(uint18(vec + 2)))
+		p.cpu.PS = psw(p.unibus.read16(uint18(vec + 2)))
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}
@@ -118,7 +118,7 @@ func (p *PDP1140) trapat(vec int, msg string) {
 			panic(t)
 		}
 		p.cpu.R[7] = int(p.unibus.read16(uint18(vec)))
-		p.cpu.PS = PSW(p.unibus.read16(uint18(vec + 2)))
+		p.cpu.PS = psw(p.unibus.read16(uint18(vec + 2)))
 		if p.cpu.prevuser {
 			p.cpu.PS |= (1 << 13) | (1 << 12)
 		}

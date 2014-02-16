@@ -37,20 +37,20 @@ const (
 	flagC = 1
 )
 
-type PSW uint16
+type psw uint16
 
-func (p PSW) N() bool { return p&flagN == flagN }
-func (p PSW) Z() bool { return p&flagZ == flagZ }
-func (p PSW) V() bool { return p&flagV == flagV }
-func (p PSW) C() bool { return p&flagC == flagC }
+func (p psw) N() bool { return p&flagN == flagN }
+func (p psw) Z() bool { return p&flagZ == flagZ }
+func (p psw) V() bool { return p&flagV == flagV }
+func (p psw) C() bool { return p&flagC == flagC }
 
-func (p *PSW) testAndSetZero(v int) {
+func (p *psw) testAndSetZero(v int) {
 	if v == 0 {
 		*p |= flagZ
 	}
 }
 
-func (p *PSW) testAndSetNeg(v int) {
+func (p *psw) testAndSetNeg(v int) {
 	if v != 0 {
 		*p |= flagN
 	}
@@ -58,7 +58,7 @@ func (p *PSW) testAndSetNeg(v int) {
 
 type cpu struct {
 	R                 [8]int // registers
-	PS                PSW    // processor status
+	PS                psw    // processor status
 	pc                uint16 // address of currently executing instructoin
 	KSP, USP          uint16 // kernel and user stack pointer
 	curuser, prevuser bool
@@ -469,7 +469,7 @@ func (k *cpu) step() {
 		k.push(prev)
 		k.push(uint16(k.R[7]))
 		k.R[7] = int(k.unibus.read16(uint18(vec)))
-		k.PS = PSW(k.unibus.read16(uint18(vec + 2)))
+		k.PS = psw(k.unibus.read16(uint18(vec + 2)))
 		if k.prevuser {
 			k.PS |= (1 << 13) | (1 << 12)
 		}
@@ -477,9 +477,9 @@ func (k *cpu) step() {
 	}
 	if (instr & 0177740) == 0240 { // CL?, SE?
 		if instr&020 == 020 {
-			k.PS |= PSW(instr) & 017
+			k.PS |= psw(instr) & 017
 		} else {
-			k.PS &= ^(PSW(instr) & 017)
+			k.PS &= ^(psw(instr) & 017)
 		}
 		return
 	}

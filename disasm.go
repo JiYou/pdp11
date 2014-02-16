@@ -5,10 +5,10 @@ import "fmt"
 var rs = [...]string{"R0", "R1", "R2", "R3", "R4", "R5", "SP", "PC"}
 
 const (
-	flagD = 1 << 0
-	flagS = 1 << 1
-	flagO = 1 << 2
-	flagR = 1 << 3
+	flagD    = 1 << 0
+	flagS    = 1 << 1
+	flagO    = 1 << 2
+	flagR    = 1 << 3
 	flagNone = 1 << 4
 )
 
