@@ -34,7 +34,7 @@ func (m *KT11) read16(a uint18) uint16 {
 	if (a >= 0777640) && (a < 0777660) {
 		return m.pages[i+8].par
 	}
-	panic(trap{INTBUS, fmt.Sprintf("invalid read from %06o", a)})
+	panic(trap{intBUS, fmt.Sprintf("invalid read from %06o", a)})
 }
 
 func (m *KT11) write16(a uint18, v uint16) {
@@ -55,7 +55,7 @@ func (m *KT11) write16(a uint18, v uint16) {
 		m.pages[i+8].par = v
 		return
 	}
-	panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
+	panic(trap{intBUS, fmt.Sprintf("write to invalid address %06o", a)})
 }
 
 func (m *KT11) mmuEnabled() bool  { return m.SR0&1 == 1 }
@@ -84,7 +84,7 @@ func (m *KT11) decode(a uint16, w, user bool) (addr uint18) {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
 		m.SR2 = m.cpu.pc
-		panic(trap{INTFAULT, fmt.Sprintf("write to read-only page %06o", a)})
+		panic(trap{intFAULT, fmt.Sprintf("write to read-only page %06o", a)})
 	}
 	if !p.read() {
 		m.SR0 = (1 << 15) | 1
@@ -93,7 +93,7 @@ func (m *KT11) decode(a uint16, w, user bool) (addr uint18) {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
 		m.SR2 = m.cpu.pc
-		panic(trap{INTFAULT, fmt.Sprintf("read from no-access page %06o", a)})
+		panic(trap{intFAULT, fmt.Sprintf("read from no-access page %06o", a)})
 	}
 	block := (a >> 6) & 0177
 	disp := uint18(a & 077)
@@ -105,7 +105,7 @@ func (m *KT11) decode(a uint16, w, user bool) (addr uint18) {
 			m.SR0 |= (1 << 5) | (1 << 6)
 		}
 		m.SR2 = m.cpu.pc
-		panic(trap{INTFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len())})
+		panic(trap{intFAULT, fmt.Sprintf("page length exceeded, address %06o (block %03o) is beyond %03o", a, block, p.len())})
 	}
 	if w {
 		p.pdr |= 1 << 6

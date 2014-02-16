@@ -24,7 +24,7 @@ func (u *unibus) Reset() {
 func (u *unibus) read16(a uint18) uint16 {
 	switch {
 	case a&1 == 1:
-		panic(trap{INTBUS, fmt.Sprintf("read from odd address %06o", a)})
+		panic(trap{intBUS, fmt.Sprintf("read from odd address %06o", a)})
 	case a < MEMSIZE:
 		return u.Memory[a>>1]
 	case a == 0777546:
@@ -46,7 +46,7 @@ func (u *unibus) read16(a uint18) uint16 {
 	case a == 0776000:
 		panic("lolwut")
 	default:
-		panic(trap{INTBUS, fmt.Sprintf("read from invalid address %06o", a)})
+		panic(trap{intBUS, fmt.Sprintf("read from invalid address %06o", a)})
 	}
 }
 
@@ -78,7 +78,7 @@ func (u *unibus) write8(a uint18, v uint16) {
 
 func (u *unibus) write16(a uint18, v uint16) {
 	if a%1 != 0 {
-		panic(trap{INTBUS, fmt.Sprintf("write to odd address %06o", a)})
+		panic(trap{intBUS, fmt.Sprintf("write to odd address %06o", a)})
 	}
 	if a < MEMSIZE {
 		u.Memory[a>>1] = v
@@ -115,6 +115,6 @@ func (u *unibus) write16(a uint18, v uint16) {
 	} else if (a&0777600) == 0772200 || (a&0777600) == 0777600 {
 		u.cpu.mmu.write16(a, v)
 	} else {
-		panic(trap{INTBUS, fmt.Sprintf("write to invalid address %06o", a)})
+		panic(trap{intBUS, fmt.Sprintf("write to invalid address %06o", a)})
 	}
 }

@@ -17,15 +17,15 @@ var (
 
 // traps
 const (
-	INTBUS    = 0004
-	INTINVAL  = 0010
-	INTDEBUG  = 0014
-	INTIOT    = 0020
-	INTTTYIN  = 0060
-	INTTTYOUT = 0064
-	INTFAULT  = 0250
-	INTCLOCK  = 0100
-	INTRK     = 0220
+	intBUS    = 0004
+	intINVAL  = 0010
+	intDEBUG  = 0014
+	intIOT    = 0020
+	intTTYIN  = 0060
+	intTTYOUT = 0064
+	intFAULT  = 0250
+	intCLOCK  = 0100
+	intRK     = 0220
 )
 
 func xor(a, b bool) bool { return a != b }
@@ -519,7 +519,7 @@ func (k *cpu) step() {
 	case 0170011: // SETD ; not needed by UNIX, but used; therefore ignored
 		return
 	}
-	panic(trap{INTINVAL, "invalid instruction"})
+	panic(trap{intINVAL, "invalid instruction"})
 }
 
 func (c *cpu) interrupt(vec, pri int) {

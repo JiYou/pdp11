@@ -50,7 +50,7 @@ func (c *Console) addchar(char int) {
 	c.TKS |= 0x80
 	c.ready = false
 	if c.TKS&(1<<6) != 0 {
-		c.unibus.cpu.interrupt(INTTTYIN, 4)
+		c.unibus.cpu.interrupt(intTTYIN, 4)
 	}
 }
 
@@ -81,7 +81,7 @@ func (c *Console) Step() {
 		c.writeterminal(c.TPB & 0x7f)
 		c.TPS |= 0x80
 		if c.TPS&(1<<6) != 0 {
-			c.unibus.cpu.interrupt(INTTTYOUT, 4)
+			c.unibus.cpu.interrupt(intTTYOUT, 4)
 		}
 	}
 }

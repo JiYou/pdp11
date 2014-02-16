@@ -66,7 +66,7 @@ func (p *PDP1140) step() {
 		clkcounter = 0
 		p.LKS |= (1 << 7)
 		if p.LKS&(1<<6) != 0 {
-			p.cpu.interrupt(INTCLOCK, 6)
+			p.cpu.interrupt(intCLOCK, 6)
 		}
 	}
 	p.rk.Step()
