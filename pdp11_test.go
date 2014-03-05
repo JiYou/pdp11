@@ -52,7 +52,9 @@ cc test.c
 }
 
 func TestPDP(t *testing.T) {
-	t.Skip("unsable")
+	if testing.Short() {
+		t.Skip("skipping in -short mode")
+	}
 	for _, tt := range pdpTests {
 		pdp := New()
 		pdp.LoadMemory(BOOTRK05)
